@@ -4,7 +4,7 @@ This document details the system design, user flows, database structures, and ar
 
 ---
 
-## 🛠️ Technology Stack Breakdown
+##  Technology Stack Breakdown
 
 ### 1. AI / Model Layer
 *   **Google Gemini 3.5 Flash (`gemini-3.5-flash`)**: Core LLM used for high-speed, multi-lingual natural language generation, semantic voice agent replies, and database-free intent parsing.
@@ -30,7 +30,7 @@ This document details the system design, user flows, database structures, and ar
 
 ---
 
-## 📊 Comprehensive System Flowchart
+##  Comprehensive System Flowchart
 
 The diagram below details the entire application structure, including initialization, multi-lingual navigation, offline caching, and the AI agent loop.
 
