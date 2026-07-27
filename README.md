@@ -8,7 +8,7 @@ KisanSaathi is an agentic AI companion designed for Indian farmers that predicts
 ## System Architecture
 
 The following diagram illustrates the system architecture of the KisanSaathi application, showing how the frontend, local storage caches, native Web APIs, and external free service layers interact:
-![App Screenshot](assets/screenshot1.png)
+![App Screenshot](src/assets/screenshot1.png)
 
 ```mermaid
 graph TD
