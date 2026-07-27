@@ -96,7 +96,7 @@ export default function Landing() {
         </div>
 
         {/* CTA Launch Buttons */}
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md">
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-2xl">
           <button
             onClick={() => handleStart('pa')}
             className="w-full sm:flex-1 py-4 bg-primary-green hover:bg-green-700 active:scale-95 text-white font-extrabold rounded-full shadow-lg hover:shadow-green-200 transition-all text-sm sm:text-base flex items-center justify-center gap-2 group"
@@ -110,6 +110,13 @@ export default function Landing() {
             className="w-full sm:flex-1 py-4 bg-white border-2 border-primary-green text-primary-green hover:bg-green-50 active:scale-95 font-extrabold rounded-full transition-all text-sm sm:text-base flex items-center justify-center gap-2"
           >
             <span>हिंदी में शुरू करें</span>
+          </button>
+
+          <button
+            onClick={() => handleStart('en')}
+            className="w-full sm:flex-1 py-4 bg-white border-2 border-amber-600 text-amber-700 hover:bg-amber-50 active:scale-95 font-extrabold rounded-full transition-all text-sm sm:text-base flex items-center justify-center gap-2"
+          >
+            <span>Start in English</span>
           </button>
         </div>
 
