@@ -21,33 +21,6 @@ The following diagram illustrates the high-level system architecture of the Kisa
 
 ![App Screenshot](src/assets/screenshot1.png)
 
-```mermaid
-graph TD
-    subgraph Client Application Layer (React + Vite)
-        UI[Farmer Dashboard / Wizard UI]
-        VoiceS[Voice Service: Web Speech API STT/TTS]
-        PDFGen[PDF Service: jsPDF Document Compiler]
-        LocalCache[LocalStorage Cache & Fallbacks]
-    end
-
-    subgraph Core AI Layer (Google AI Studio)
-        GeminiText[Gemini 3.1 Flash Lite: Text Agent / Intent Classifier]
-        GeminiVision[Gemini 3.1 Flash Lite: Document OCR & Crop Doctor]
-    end
-
-    subgraph Data & External Services
-        Firebase[Firebase Spark Plan: Firestore DB]
-        OpenMeteo[Open-Meteo Weather API]
-    end
-
-    UI --> VoiceS
-    UI --> PDFGen
-    UI --> LocalCache
-    UI --> GeminiText
-    UI --> GeminiVision
-    UI --> OpenMeteo
-    LocalCache --> Firebase
-```
 
 ---
 
