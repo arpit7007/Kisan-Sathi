@@ -1,7 +1,7 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { Tractor, ArrowRight, ShieldCheck, HelpCircle, Users } from 'lucide-react';
+import { Tractor, ArrowRight, ShieldCheck, HelpCircle, Users, Layers } from 'lucide-react';
 
 export default function Landing() {
   const { t, language, setLanguage } = useLanguage();
@@ -134,7 +134,13 @@ export default function Landing() {
       {/* Footer Info */}
       <footer className="w-full py-6 text-center text-[10px] text-gray-400 z-10 max-w-4xl mx-auto px-6 border-t border-green-50/50 flex flex-col sm:flex-row justify-between items-center gap-2">
         <span>© 2026 KisanSaathi Inc. Made for Punjab Hackathon.</span>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-4 justify-center">
+          <button 
+            onClick={() => navigate('/architecture')}
+            className="flex items-center gap-1 text-primary-green hover:text-green-700 font-extrabold hover:underline transition-all"
+          >
+            <Layers className="w-3.5 h-3.5" /> Tech Stack & Flow
+          </button>
           <span className="flex items-center gap-0.5"><ShieldCheck className="w-3.5 h-3.5 text-green-500" /> Offline Capable</span>
           <span className="flex items-center gap-0.5"><HelpCircle className="w-3.5 h-3.5 text-green-500" /> Zero Paid APIs</span>
         </div>

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { getFarmerProfile } from '../services/firebase';
-import { Tractor, LayoutDashboard, Mic, ShieldCheck, FileText, Activity, Languages, Menu, X } from 'lucide-react';
+import { Tractor, LayoutDashboard, Mic, ShieldCheck, FileText, Activity, Languages, Menu, X, Layers } from 'lucide-react';
 
 export default function Navbar() {
   const { t, language, setLanguage } = useLanguage();
@@ -22,14 +22,15 @@ export default function Navbar() {
     }
   }, [location]);
 
-  // If we are on landing or onboard, don't show the main navbar
-  if (location.pathname === '/' || location.pathname === '/onboard') {
+  // If we are on landing, onboard, or architecture, don't show the main navbar
+  if (location.pathname === '/' || location.pathname === '/onboard' || location.pathname === '/architecture') {
     return null;
   }
 
   const navItems = [
     { path: '/dashboard', label: t('dashboardTitle'), icon: LayoutDashboard },
     { path: '/chat', label: t('voiceAgent'), icon: Mic },
+    { path: '/enroll', label: t('enrollTitle'), icon: ShieldCheck },
     { path: '/policy', label: t('policyAdvisorTitle'), icon: ShieldCheck },
     { path: '/claim', label: t('fileClaimTitle'), icon: FileText },
     { path: '/status', label: t('trackerTitle'), icon: Activity }
@@ -135,6 +136,18 @@ export default function Navbar() {
                 <span>{item.label}</span>
               </NavLink>
             ))}
+
+            {/* Developer Tech Stack & Architecture link */}
+            <div className="border-t border-green-100 pt-3 mt-3">
+              <NavLink
+                to="/architecture"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-3 p-3 rounded-2xl text-base font-bold text-textSecondary hover:text-primary-green hover:bg-green-50/50 transition-all"
+              >
+                <Layers className="w-5 h-5 text-primary-green" />
+                <span>Tech Stack & Flow</span>
+              </NavLink>
+            </div>
           </div>
         </div>
       )}

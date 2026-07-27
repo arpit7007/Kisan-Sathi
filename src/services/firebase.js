@@ -77,6 +77,21 @@ const localDb = {
     const claims = localDb.getClaims(uid);
     const updated = claims.map(c => c.claimId === claimId ? { ...c, status } : c);
     localStorage.setItem(`kisan_claims_${uid}`, JSON.stringify(updated));
+  },
+  getApplications: (uid) => {
+    const apps = localStorage.getItem(`kisan_applications_${uid}`);
+    return apps ? JSON.parse(apps) : [];
+  },
+  saveApplication: (uid, appData) => {
+    const apps = localDb.getApplications(uid);
+    const newApp = {
+      ...appData,
+      appId: appData.appId || `APP-${Math.floor(100000 + Math.random() * 900000)}`,
+      dateCreated: new Date().toISOString()
+    };
+    apps.push(newApp);
+    localStorage.setItem(`kisan_applications_${uid}`, JSON.stringify(apps));
+    return newApp.appId;
   }
 };
 
@@ -214,5 +229,56 @@ export async function updateClaimStatus(uid, claimId, status) {
     await updateDoc(doc(db, "claims", claimId), { status });
   } catch (error) {
     console.error("Firestore updateClaimStatus failed, saved locally only:", error);
+  }
+}
+
+export async function saveApplication(uid, appData) {
+  if (useLocalDb) {
+    return localDb.saveApplication(uid, appData);
+  }
+
+  try {
+    const appId = appData.appId || `APP-${Math.floor(100000 + Math.random() * 900000)}`;
+    const newApp = {
+      ...appData,
+      appId,
+      farmerId: uid,
+      dateCreated: new Date().toISOString()
+    };
+    await setDoc(doc(db, "applications", uid, "user_applications", appId), newApp);
+    
+    // Also save in local storage for double-caching
+    localDb.saveApplication(uid, newApp);
+
+    return appId;
+  } catch (error) {
+    console.error("Firestore saveApplication failed, saving locally:", error);
+    return localDb.saveApplication(uid, appData);
+  }
+}
+
+export async function getApplications(uid) {
+  if (useLocalDb) {
+    return localDb.getApplications(uid);
+  }
+
+  try {
+    const q = collection(db, "applications", uid, "user_applications");
+    const querySnapshot = await getDocs(q);
+    const apps = [];
+    querySnapshot.forEach((doc) => {
+      apps.push(doc.data());
+    });
+    
+    if (apps.length === 0) {
+      return localDb.getApplications(uid);
+    }
+    
+    // Cache locally
+    localStorage.setItem(`kisan_applications_${uid}`, JSON.stringify(apps));
+    return apps;
+  } catch (error) {
+    console.error("Firestore getApplications failed, loading from cache:", error);
+    return localDb.getApplications(uid);
   }
 }

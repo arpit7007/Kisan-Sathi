@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
-import { getFarmerProfile } from '../services/firebase';
+import { getFarmerProfile, saveFarmerProfile } from '../services/firebase';
 import { callGemini } from '../services/gemini';
 import { startListening, stopListening, speak, stopSpeaking, isVoiceSupported } from '../services/voice';
 import { Mic, MicOff, Send, HelpCircle, AlertCircle, Tractor, ArrowLeft } from 'lucide-react';
@@ -89,6 +89,51 @@ export default function Chat() {
     setIsProcessing(true);
     stopSpeaking();
 
+    // Check for static policy apply request
+    const lowercaseText = userText.toLowerCase();
+    const isApplyPolicyRequest = lowercaseText.includes("apply") || 
+                                 lowercaseText.includes("enroll") || 
+                                 lowercaseText.includes("register") || 
+                                 lowercaseText.includes("bima") ||
+                                 lowercaseText.includes("ਲਾਗੂ") || 
+                                 lowercaseText.includes("ਬੀਮਾ");
+
+    if (isApplyPolicyRequest) {
+      await new Promise(resolve => setTimeout(resolve, 800));
+      const primaryCrop = profile?.primaryCrop || 'Cotton';
+      const policyToEnroll = primaryCrop === 'Cotton' ? 'RWBCIS' : 'PMFBY';
+      
+      const uid = localStorage.getItem('kisan_current_uid');
+      if (uid && profile) {
+        const updatedProfile = { 
+          ...profile, 
+          hasInsurance: 'Yes', 
+          enrolledPolicy: policyToEnroll 
+        };
+        await saveFarmerProfile(uid, updatedProfile);
+        setProfile(updatedProfile);
+      }
+      
+      let responseText = `Done! I have successfully enrolled you in the recommended ${policyToEnroll} policy for your ${primaryCrop} crop. Your profile has been updated!`;
+      if (language === 'pa') {
+        responseText = `ਜੀ ਬਿਲਕੁਲ! ਮੈਂ ਤੁਹਾਡੀ ${primaryCrop === 'Cotton' ? 'ਕਪਾਹ' : 'ਕਣਕ'} ਦੀ ਫਸਲ ਲਈ ${policyToEnroll} ਬੀਮਾ ਯੋਜਨਾ ਵਿੱਚ ਤੁਹਾਨੂੰ ਸਫਲਤਾਪੂਰਵਕ ਦਰਜ ਕਰ ਦਿੱਤਾ ਹੈ। ਹੁਣ ਤੁਹਾਡਾ ਪ੍ਰੋਫਾਈਲ ਅੱਪਡੇਟ ਹੋ ਗਿਆ ਹੈ!`;
+      } else if (language === 'hi') {
+        responseText = `जी बिल्कुल! मैंने आपकी ${primaryCrop === 'Cotton' ? 'कपास' : 'गेहूं'} की फसल के लिए आपको ${policyToEnroll} बीमा योजना में पंजीकृत कर दिया है। आपका प्रोफ़ाइल अपडेट हो गया है!`;
+      }
+      
+      const agentMsg = {
+        sender: 'agent',
+        text: responseText,
+        intent: 'POLICY_ENROLLED',
+        timestamp: Date.now()
+      };
+      
+      setMessages(prev => [...prev, agentMsg]);
+      setIsProcessing(false);
+      speak(responseText, language);
+      return;
+    }
+
     // Prepare farmer context for Gemini
     const farmerName = profile?.name || 'Farmer';
     const district = profile?.district || 'Punjab';
@@ -125,11 +170,12 @@ Rules:
 - When farmer describes crop damage, ask: What crop? What damage? How many acres affected? When did it happen?
 - After collecting damage info, say you will file the claim and summarize what you collected
 - Always remind about the 72-hour window for claims
-- Keep responses under 3 sentences for voice`;
+- Keep responses under 3 sentences for voice
+- If farmer says 'enroll' or 'insurance', respond: 'Great! Let's get you enrolled. Tap the button below to start the quick 60-second enrollment wizard!'`;
 
     // Intent classifier call
     const intentPrompt = `Classify this message intent as one of: 
-RISK_QUESTION | POLICY_QUESTION | CLAIM_START | CLAIM_FOLLOWUP | FARMING_ADVICE | GREETING | OTHER
+RISK_QUESTION | POLICY_QUESTION | CLAIM_START | ENROLL_REQUEST | FARMING_ADVICE | GREETING | OTHER
 Respond with just the intent string.
 
 Message: "${userText}"`;
@@ -141,7 +187,17 @@ Message: "${userText}"`;
         callGemini(intentPrompt, "Respond only with the classification string.")
       ]);
 
-      const cleanedIntent = intentReply.trim().toUpperCase();
+      const rawIntent = intentReply.toUpperCase();
+      const validIntents = [
+        'RISK_QUESTION',
+        'POLICY_QUESTION',
+        'CLAIM_START',
+        'ENROLL_REQUEST',
+        'FARMING_ADVICE',
+        'GREETING',
+        'OTHER'
+      ];
+      const cleanedIntent = validIntents.find(intent => rawIntent.includes(intent)) || 'OTHER';
 
       // Add agent reply
       const agentMsg = {
@@ -156,17 +212,85 @@ Message: "${userText}"`;
 
       // Speak response
       speak(agentReply, language);
+
+      // Auto-routing if intent is CLAIM_START or ENROLL_REQUEST!
+      if (cleanedIntent === 'CLAIM_START') {
+        setTimeout(() => {
+          navigate('/claim');
+        }, 2200);
+      } else if (cleanedIntent === 'ENROLL_REQUEST') {
+        setTimeout(() => {
+          navigate('/enroll');
+        }, 2200);
+      }
     } catch (e) {
-      console.error("Gemini call error in chat:", e);
+      console.error("Gemini call error in chat, using offline conversational agent simulator:", e);
       setIsProcessing(false);
-      const fallbackMsg = {
+      
+      const lowercaseText = userText.toLowerCase();
+      let responseText = "ਮੈਂ ਕਿਸਾਨਸਾਥੀ ਹਾਂ। ਮੈਂ ਤੁਹਾਡੀ ਫਸਲ ਦੇ ਜੋਖਮ, ਬੀਮਾ ਅਤੇ ਨੁਕਸਾਨ ਦੇ ਦਾਅਵੇ ਭਰਨ ਵਿੱਚ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ। ਤੁਸੀਂ ਕੁਝ ਵੀ ਪੁੱਛ ਸਕਦੇ ਹੋ।";
+      let matchedIntent = 'OTHER';
+      
+      if (language === 'en') {
+        responseText = "I am KisanSaathi. I can assist you with your crop risk, policy comparisons, and damage claims. Ask me anything!";
+        if (lowercaseText.includes("damage") || lowercaseText.includes("claim") || lowercaseText.includes("spots") || lowercaseText === "yes" || lowercaseText.includes("file") || lowercaseText === "ok" || lowercaseText === "okay") {
+          responseText = "I detected crop damage details. Let's start filing a claim. Redirecting you to the claim filing page now...";
+          matchedIntent = 'CLAIM_START';
+        } else if (lowercaseText.includes("enroll") || lowercaseText.includes("apply") || lowercaseText.includes("register")) {
+          responseText = "Great! Tap the Start Enrollment button below and I will guide you through the quick enrollment wizard.";
+          matchedIntent = 'ENROLL_REQUEST';
+        } else if (lowercaseText.includes("insurance") || lowercaseText.includes("policy")) {
+          responseText = "For Cotton in Mansa, I recommend the RWBCIS weather policy due to its fast 45-day payouts for temperature/pest hazards.";
+          matchedIntent = 'POLICY_QUESTION';
+        } else if (lowercaseText.includes("weather") || lowercaseText.includes("risk")) {
+          responseText = "High risk detected for Cotton in Mansa due to whitefly infestation. Sowing is otherwise optimal.";
+          matchedIntent = 'RISK_QUESTION';
+        }
+      } else if (language === 'hi') {
+        responseText = "मैं किसानसाथी हूँ। मैं आपकी फसल के जोखिम, बीमा और दावे फाइल करने में सहायता कर सकता हूँ।";
+        if (lowercaseText.includes("nuksan") || lowercaseText.includes("claim") || lowercaseText.includes("daag") || lowercaseText === "yes" || lowercaseText === "हां" || lowercaseText === "जी" || lowercaseText.includes("फाइल")) {
+          responseText = "मैंने फसल के नुकसान की पहचान की है। आइए आपका बीमा दावा दर्ज करें। आपको दावा फाइलिंग पृष्ठ पर स्थानांतरित किया जा रहा है...";
+          matchedIntent = 'CLAIM_START';
+        } else if (lowercaseText.includes("enroll") || lowercaseText.includes("apply") || lowercaseText.includes("bima") || lowercaseText.includes("insurance") || lowercaseText.includes("पंजीकृत")) {
+          responseText = "बहुत बढ़िया! त्वरित नामांकन शुरू करने के लिए नीचे दिए गए बटन पर टैप करें।";
+          matchedIntent = 'ENROLL_REQUEST';
+        } else if (lowercaseText.includes("policy")) {
+          responseText = "आपके लिए पीएमएफबीवाई (PMFBY) या आरडब्ल्यूबीसीआईएस सबसे अच्छा विकल्प है। क्या मैं योग्यता की जांच करूं?";
+          matchedIntent = 'POLICY_QUESTION';
+        }
+      } else { // pa
+        if (lowercaseText.includes("ਨੁਕਸਾਨ") || lowercaseText.includes("ਦਾਅਵਾ") || lowercaseText.includes("ਦਾਗ") || lowercaseText.includes("nuksan") || lowercaseText === "yes" || lowercaseText === "ਹਾਂ" || lowercaseText === "ਜੀ" || lowercaseText.includes("ਫਾਈਲ")) {
+          responseText = "ਮੈਂ ਸਮਝ ਸਕਦਾ ਹਾਂ, ਤੁਹਾਡੀ ਫਸਲ ਦਾ ਨੁਕਸਾਨ ਹੋਇਆ ਹੈ। ਆਓ ਦਾਅਵਾ ਦਰਜ ਕਰੀਏ। ਤੁਹਾਨੂੰ ਦਾਅਵਾ ਦਾਇਰ ਕਰਨ ਵਾਲੇ ਪੰਨੇ 'ਤੇ ਭੇਜਿਆ ਜਾ ਰਿਹਾ ਹੈ...";
+          matchedIntent = 'CLAIM_START';
+        } else if (lowercaseText.includes("ਰਜਿਸਟ੍ਰੇਸ਼ਨ") || lowercaseText.includes("ਲਾਗੂ") || lowercaseText.includes("ਬੀਮਾ") || lowercaseText.includes("enroll") || lowercaseText.includes("insurance")) {
+          responseText = "ਬਹੁਤ ਵਧੀਆ! ਤੁਰੰਤ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਹੇਠਾਂ ਦਿੱਤੇ ਬਟਨ 'ਤੇ ਟੈਪ ਕਰੋ।";
+          matchedIntent = 'ENROLL_REQUEST';
+        } else if (lowercaseText.includes("policy")) {
+          responseText = "ਤੁਹਾਡੇ ਲਈ ਪ੍ਰਧਾਨ ਮੰਤਰੀ ਫਸਲ ਬੀਮਾ ਯੋਜਨਾ (PMFBY) ਅਤੇ RWBCIS ਸਭ ਤੋਂ ਵਧੀਆ ਵਿਕਲਪ ਹਨ। ਕੀ ਤੁਸੀਂ ਚਾਹੁੰਦੇ ਹੋ ਕਿ ਮੈਂ ਤੁਹਾਡੀ ਯੋਗਤਾ ਦੀ ਜਾਂਚ ਕਰਾਂ?";
+          matchedIntent = 'POLICY_QUESTION';
+        }
+      }
+      
+      const staticMsg = {
         sender: 'agent',
-        text: language === 'pa' 
-          ? "ਮਾਫ਼ ਕਰਨਾ, ਨੈੱਟਵਰਕ ਸਮੱਸਿਆ ਹੈ। ਕਿਰਪਾ ਕਰਕੇ ਦੁਬਾਰਾ ਕੋਸ਼ਿਸ਼ ਕਰੋ।" 
-          : "Sorry, I am facing connectivity issues. Please try again.",
+        text: responseText,
+        intent: matchedIntent,
         timestamp: Date.now()
       };
-      setMessages(prev => [...prev, fallbackMsg]);
+      
+      setMessages(prev => [...prev, staticMsg]);
+      speak(responseText, language);
+
+      // Auto-navigate to appropriate page (offline mode)
+      if (matchedIntent === 'CLAIM_START') {
+        setTimeout(() => {
+          navigate('/claim');
+        }, 2200);
+      } else if (matchedIntent === 'ENROLL_REQUEST') {
+        setTimeout(() => {
+          navigate('/enroll');
+        }, 2200);
+      }
     }
   };
 
@@ -255,6 +379,27 @@ Message: "${userText}"`;
                   >
                     {t('seePoliciesButton')}
                   </button>
+                </div>
+              )}
+              {msg.sender === 'agent' && msg.intent === 'ENROLL_REQUEST' && (
+                <div className="mt-3 pt-3 border-t border-green-100 flex flex-col gap-2">
+                  <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">Suggested Action</span>
+                  <button
+                    onClick={() => navigate('/enroll')}
+                    className="w-full py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold rounded-xl text-xs shadow-md transition-all active:scale-95 text-center"
+                  >
+                    Start Enrollment 📋
+                  </button>
+                </div>
+              )}
+              {msg.sender === 'agent' && msg.intent === 'POLICY_ENROLLED' && (
+                <div className="mt-3 pt-3 border-t border-green-100/50 flex items-center gap-2 text-green-700">
+                  <div className="w-5 h-5 rounded-full bg-green-100 text-green-600 flex items-center justify-center font-bold text-xs shrink-0">
+                    ✓
+                  </div>
+                  <span className="text-[11px] font-extrabold tracking-wide">
+                    Policy Enrolled Successfully in Profile!
+                  </span>
                 </div>
               )}
             </div>

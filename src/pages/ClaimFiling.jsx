@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { getFarmerProfile, saveClaim } from '../services/firebase';
-import { callGeminiVision } from '../services/gemini';
+import { callGeminiVision, extractJSON } from '../services/gemini';
 import { speak } from '../services/voice';
 import { FileText, Camera, Check, AlertCircle, Calendar, ArrowLeft, ArrowRight, Clock, ShieldAlert, CreditCard } from 'lucide-react';
 
@@ -11,7 +11,13 @@ const DAMAGE_TYPES = [
   "Disease", "Hailstorm", "Unseasonal rain", "Other"
 ];
 
-const POLICIES = ["PMFBY", "RWBCIS", "UPIS", "Kshema Private Insurance", "None"];
+const POLICIES = [
+  { id: "PMFBY", name: "PMFBY" },
+  { id: "RWBCIS", name: "RWBCIS" },
+  { id: "UPIS", name: "UPIS" },
+  { id: "Kshema", name: "Kshema Private Insurance" },
+  { id: "None", name: "None" }
+];
 
 export default function ClaimFiling() {
   const { t, language } = useLanguage();
@@ -118,8 +124,10 @@ Respond ONLY in JSON format: {"cropIdentified", "damageType", "severity", "confi
 
     try {
       const resp = await callGeminiVision(prompt, photoBase64);
-      const cleaned = resp.replace(/```json|```/g, '').trim();
+      const cleaned = extractJSON(resp);
+      if (!cleaned) throw new Error("JSON extraction returned empty/null");
       const parsed = JSON.parse(cleaned);
+      if (!parsed || typeof parsed !== 'object') throw new Error("Parsed JSON is not an object");
       setVisionResult(parsed);
       
       // Auto pre-fill fields from vision analysis
@@ -473,7 +481,7 @@ Respond ONLY in JSON format: {"cropIdentified", "damageType", "severity", "confi
                     className="w-full p-3 border border-green-100 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-green text-sm text-textPrimary bg-gray-50/50 cursor-pointer"
                   >
                     {POLICIES.map(p => (
-                      <option key={p} value={p}>{p}</option>
+                      <option key={p.id} value={p.id}>{p.name}</option>
                     ))}
                   </select>
                 </div>
@@ -538,7 +546,7 @@ Respond ONLY in JSON format: {"cropIdentified", "damageType", "severity", "confi
                 {/* Row 4 */}
                 <div className="grid grid-cols-2 p-3">
                   <span className="text-gray-400 font-semibold">Insurance Policy Applied:</span>
-                  <span className="text-textPrimary font-bold text-right">{selectedPolicy}</span>
+                  <span className="text-textPrimary font-bold text-right">{POLICIES.find(p => p.id === selectedPolicy)?.name || selectedPolicy}</span>
                 </div>
                 {/* Row 5 */}
                 <div className="grid grid-cols-2 p-3">

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    body {
+      width: 250px;
+      font-family: system-ui, -apple-system, sans-serif;
+      margin: 0;
+      padding: 16px;
+      color: #1e293b;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      border-bottom: 1px solid #e2e8f0;
+      padding-bottom: 12px;
+      margin-bottom: 12px;
+    }
+    .logo {
+      font-size: 24px;
+    }
+    h3 {
+      margin: 0;
+      font-size: 16px;
+      color: #14532d;
+    }
+    .status {
+      font-size: 11px;
+      color: #64748b;
+      margin-bottom: 16px;
+      line-height: 1.4;
+    }
+    .status-badge {
+      display: inline-block;
+      background-color: #dcfce7;
+      color: #16a34a;
+      font-weight: bold;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+    .btn {
+      display: block;
+      width: 100%;
+      background-color: #16a34a;
+      color: white;
+      text-align: center;
+      padding: 8px 0;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: bold;
+      font-size: 12px;
+      transition: background-color 0.2s;
+      border: none;
+      cursor: pointer;
+    }
+    .btn:hover {
+      background-color: #15803d;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <span class="logo">🌾</span>
+    <div>
+      <h3>KisanSaathi Agent</h3>
+      <span class="status-badge">Extension Active</span>
+    </div>
+  </div>
+  <div class="status">
+    Syncs farmer profile details from KisanSaathi dashboard and autofills official PMFBY Government Portal forms.
+  </div>
+  <a href="http://localhost:5173" target="_blank" class="btn">Open KisanSaathi</a>
+</body>
+</html>

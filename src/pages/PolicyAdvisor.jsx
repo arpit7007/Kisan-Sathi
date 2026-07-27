@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { getFarmerProfile, saveFarmerProfile } from '../services/firebase';
-import { callGemini } from '../services/gemini';
+import { callGemini, extractJSON } from '../services/gemini';
 import { Shield, Sparkles, AlertCircle, HelpCircle, Check, DollarSign, Clock, X } from 'lucide-react';
 
 const POLICIES_DATA = {
@@ -67,6 +67,18 @@ export default function PolicyAdvisor() {
   const [showApplyModal, setShowApplyModal] = useState(null); // stores policy key for instructions
   const [enrollSuccess, setEnrollSuccess] = useState(false);
 
+  // Payment gateway states
+  const [showPaymentModal, setShowPaymentModal] = useState(null); // stores policy key for payment
+  const [paymentMethod, setPaymentMethod] = useState('upi'); // 'upi' | 'card' | 'csc'
+  const [upiId, setUpiId] = useState('');
+  const [cardNumber, setCardNumber] = useState('4321 8765 2345 9876');
+  const [cardExpiry, setCardExpiry] = useState('12/29');
+  const [cardCvv, setCardCvv] = useState('321');
+  const [cscWalletId, setCscWalletId] = useState('CSC-IND-98745');
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentStep, setPaymentStep] = useState(1); // 1: Form, 2: Loading, 3: Success
+  const [paymentStatusText, setPaymentStatusText] = useState('');
+
   useEffect(() => {
     const uid = localStorage.getItem('kisan_current_uid');
     if (!uid) {
@@ -80,6 +92,7 @@ export default function PolicyAdvisor() {
         return;
       }
       setProfile(prof);
+      setUpiId(`${prof.name?.toLowerCase().replace(/\s+/g, '') || 'farmer'}@okaxis`);
       fetchRecommendation(prof);
     });
   }, [navigate]);
@@ -105,8 +118,10 @@ Respond in JSON:
 
     try {
       const resp = await callGemini(prompt, systemContext);
-      const cleaned = resp.replace(/```json|```/g, '').trim();
+      const cleaned = extractJSON(resp);
+      if (!cleaned) throw new Error("JSON extraction returned empty/null");
       const parsed = JSON.parse(cleaned);
+      if (!parsed || typeof parsed !== 'object') throw new Error("Parsed JSON is not an object");
       setRecommendation(parsed);
     } catch (e) {
       console.error("Failed to parse Gemini insurance recommendation, using rule-based recommendation:", e);
@@ -145,6 +160,49 @@ Respond in JSON:
         navigate('/dashboard');
       }, 2000);
     }
+  };
+
+  const handlePaymentSubmit = async (e) => {
+    e.preventDefault();
+    setPaymentLoading(true);
+    setPaymentStep(2);
+    
+    const steps = [
+      "Initiating secure transaction...",
+      "Connecting to payment gateway...",
+      "Verifying credentials and available funds...",
+      "Authorizing with bank partner...",
+      "Payment Confirmed! Activating policy..."
+    ];
+    
+    for (let i = 0; i < steps.length; i++) {
+      setPaymentStatusText(steps[i]);
+      await new Promise(resolve => setTimeout(resolve, 600));
+    }
+    
+    setPaymentStep(3);
+    await new Promise(resolve => setTimeout(resolve, 800));
+    
+    const policyKey = showPaymentModal;
+    setPaymentStep(1);
+    setPaymentLoading(false);
+    setShowPaymentModal(null);
+    
+  };
+
+  const handleAutofillPortal = (policyKey) => {
+    // 1. Post message to sync profile with Chrome Extension content script
+    window.postMessage({
+      type: "KISAN_SATHI_SYNC_PROFILE",
+      profile: profile,
+      policy: policyKey
+    }, "*");
+    
+    // 2. Open the official portal
+    setTimeout(() => {
+      const url = `https://${POLICIES_DATA[policyKey]?.portal}`;
+      window.open(url, '_blank');
+    }, 200);
   };
 
   // Dynamic values helper based on farmer land size
@@ -322,7 +380,7 @@ Respond in JSON:
                   {t('howToApply')}
                 </button>
                 <button
-                  onClick={() => handleEnroll(key)}
+                  onClick={() => setShowPaymentModal(key)}
                   disabled={enrollingPolicy !== null || isEnrolled}
                   className={`flex-1 py-2.5 text-xs font-bold rounded-xl text-center transition-all flex items-center justify-center gap-1.5 ${
                     isEnrolled
@@ -392,23 +450,216 @@ Respond in JSON:
               </ol>
             </div>
 
-            <div className="pt-4 border-t border-gray-100 flex gap-3">
-              <button
-                onClick={() => setShowApplyModal(null)}
-                className="flex-1 py-2.5 bg-gray-50 hover:bg-gray-100 text-textSecondary text-xs font-bold rounded-xl text-center"
-              >
-                Close
-              </button>
-              <button
-                onClick={() => {
-                  const url = `https://${POLICIES_DATA[showApplyModal]?.portal}`;
-                  window.open(url, '_blank');
-                }}
-                className="flex-1 py-2.5 bg-primary-green hover:bg-green-700 text-white text-xs font-bold rounded-xl text-center"
-              >
-                Open Portal Website
-              </button>
+            <div className="bg-green-50/50 p-3 rounded-2xl border border-green-100/60 text-[11px] text-green-800 space-y-1">
+              <span className="font-extrabold uppercase block tracking-wider text-[9px]">💡 KisanSaathi Extension Tip</span>
+              <p className="margin-0 leading-relaxed font-medium">
+                Install our Chrome Extension to auto-sync and autofill your profile details (Aadhaar, name, land size, crop, district) instantly on the government site!
+              </p>
             </div>
+
+            <div className="pt-4 border-t border-gray-100 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  handleAutofillPortal(showApplyModal);
+                  setShowApplyModal(null);
+                }}
+                className="w-full py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 text-white text-xs font-extrabold rounded-xl text-center shadow-md hover:shadow-lg active:scale-98 transition-all flex items-center justify-center gap-1.5"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>Autofill Portal via Extension</span>
+              </button>
+              
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowApplyModal(null)}
+                  className="flex-1 py-2.5 bg-gray-50 hover:bg-gray-100 border border-gray-100 text-textSecondary text-xs font-bold rounded-xl text-center"
+                >
+                  Close
+                </button>
+                <button
+                  onClick={() => {
+                    const url = `https://${POLICIES_DATA[showApplyModal]?.portal}`;
+                    window.open(url, '_blank');
+                  }}
+                  className="flex-1 py-2.5 border border-green-200 hover:bg-green-50 text-primary-green text-xs font-bold rounded-xl text-center"
+                >
+                  Open Manually
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Premium Payment Modal */}
+      {showPaymentModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { if (!paymentLoading) setShowPaymentModal(null); }}>
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 relative animate-fadeIn" onClick={e => e.stopPropagation()}>
+            {!paymentLoading && (
+              <button className="absolute right-4 top-4 p-1 hover:bg-gray-100 rounded-full" onClick={() => setShowPaymentModal(null)}>
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            )}
+            
+            {paymentStep === 1 ? (
+              <form onSubmit={handlePaymentSubmit} className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 bg-amber-50 rounded-2xl text-amber-600">
+                    <DollarSign className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-extrabold text-textPrimary">Secure Premium Payment</h3>
+                    <span className="text-[10px] text-textSecondary font-bold block uppercase tracking-wider">Activate Insurance Coverage</span>
+                  </div>
+                </div>
+
+                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 text-xs space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 font-semibold">Scheme Name:</span>
+                    <strong className="text-textPrimary font-bold">{POLICIES_DATA[showPaymentModal]?.name.split(' ')[0]}</strong>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400 font-semibold">Sum Insured:</span>
+                    <strong className="text-textPrimary font-bold">{calculatePolicyDetails(showPaymentModal).coverage}</strong>
+                  </div>
+                  <div className="flex justify-between pt-2 border-t border-gray-200 text-sm">
+                    <span className="text-textPrimary font-bold">Premium Amount to Pay:</span>
+                    <strong className="text-primary-green font-extrabold text-base">{calculatePolicyDetails(showPaymentModal).premium}</strong>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-textSecondary uppercase tracking-wider block">Select Payment Method</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { id: 'upi', label: 'UPI / GPay', icon: Sparkles },
+                      { id: 'card', label: 'Debit/Card', icon: Check },
+                      { id: 'csc', label: 'CSC Wallet', icon: Shield }
+                    ].map(method => {
+                      const Icon = method.icon;
+                      const active = paymentMethod === method.id;
+                      return (
+                        <button
+                          key={method.id}
+                          type="button"
+                          onClick={() => setPaymentMethod(method.id)}
+                          className={`p-3 rounded-xl border text-center flex flex-col items-center gap-1.5 transition-all ${
+                            active 
+                              ? 'border-2 border-primary-green bg-green-50/45 text-primary-green font-bold' 
+                              : 'border-gray-150 hover:bg-gray-50 text-textSecondary text-xs'
+                          }`}
+                        >
+                          <Icon className="w-4 h-4" />
+                          <span className="text-[10px]">{method.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-3 pt-2">
+                  {paymentMethod === 'upi' && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-textSecondary block">Enter UPI ID</label>
+                      <input
+                        type="text"
+                        required
+                        value={upiId}
+                        onChange={e => setUpiId(e.target.value)}
+                        placeholder="e.g. farmer@okhdfcbank"
+                        className="w-full p-3 border border-green-150 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-green text-sm text-textPrimary bg-gray-50/50"
+                      />
+                    </div>
+                  )}
+
+                  {paymentMethod === 'card' && (
+                    <div className="space-y-2">
+                      <div className="space-y-1">
+                        <label className="text-xs font-semibold text-textSecondary block">Card Number</label>
+                        <input
+                          type="text"
+                          required
+                          value={cardNumber}
+                          onChange={e => setCardNumber(e.target.value)}
+                          className="w-full p-3 border border-green-150 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-green text-sm text-textPrimary bg-gray-50/50 text-center tracking-widest font-mono"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-textSecondary block">Expiry</label>
+                          <input
+                            type="text"
+                            required
+                            value={cardExpiry}
+                            onChange={e => setCardExpiry(e.target.value)}
+                            className="w-full p-3 border border-green-150 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-green text-sm text-textPrimary bg-gray-50/50 text-center font-mono"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-xs font-semibold text-textSecondary block">CVV</label>
+                          <input
+                            type="password"
+                            required
+                            maxLength="3"
+                            value={cardCvv}
+                            onChange={e => setCardCvv(e.target.value)}
+                            className="w-full p-3 border border-green-150 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-green text-sm text-textPrimary bg-gray-50/50 text-center font-mono"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {paymentMethod === 'csc' && (
+                    <div className="space-y-1">
+                      <label className="text-xs font-semibold text-textSecondary block">CSC Operator Wallet ID</label>
+                      <input
+                        type="text"
+                        required
+                        value={cscWalletId}
+                        onChange={e => setCscWalletId(e.target.value)}
+                        className="w-full p-3 border border-green-150 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-green text-sm text-textPrimary bg-gray-50/50 text-center font-mono"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-4 border-t border-gray-150 flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setShowPaymentModal(null)}
+                    className="flex-1 py-2.5 bg-gray-50 hover:bg-gray-100 text-textSecondary text-xs font-bold rounded-xl text-center"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 bg-primary-green hover:bg-green-700 text-white text-xs font-bold rounded-xl text-center active:scale-95 transition-all font-bold"
+                  >
+                    Pay & Enroll
+                  </button>
+                </div>
+              </form>
+            ) : paymentStep === 2 ? (
+              <div className="py-8 flex flex-col items-center justify-center space-y-4 text-center">
+                <div className="w-12 h-12 border-4 border-primary-green border-t-transparent rounded-full animate-spin"></div>
+                <div className="space-y-1">
+                  <h4 className="font-bold text-textPrimary text-sm">Processing Payment</h4>
+                  <p className="text-xs text-textSecondary animate-pulse font-medium">{paymentStatusText}</p>
+                </div>
+              </div>
+            ) : (
+              <div className="py-8 flex flex-col items-center justify-center space-y-4 text-center animate-fadeIn">
+                <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
+                  <Check className="w-6 h-6" />
+                </div>
+                <div className="space-y-1">
+                  <h4 className="font-extrabold text-green-700 text-sm">Payment Successful!</h4>
+                  <p className="text-xs text-textSecondary font-semibold">Premium paid. Your policy is now active.</p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}

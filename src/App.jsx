@@ -11,6 +11,8 @@ import Chat from './pages/Chat';
 import PolicyAdvisor from './pages/PolicyAdvisor';
 import ClaimFiling from './pages/ClaimFiling';
 import ClaimTracker from './pages/ClaimTracker';
+import Architecture from './pages/Architecture';
+import Enroll from './pages/Enroll';
 
 export default function App() {
   return (
@@ -30,6 +32,8 @@ export default function App() {
               <Route path="/policy" element={<PolicyAdvisor />} />
               <Route path="/claim" element={<ClaimFiling />} />
               <Route path="/status" element={<ClaimTracker />} />
+              <Route path="/architecture" element={<Architecture />} />
+              <Route path="/enroll" element={<Enroll />} />
             </Routes>
           </div>
         </div>

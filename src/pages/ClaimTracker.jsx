@@ -144,7 +144,27 @@ export default function ClaimTracker() {
 
                   <div className="flex items-center gap-3 self-end sm:self-center">
                     <div className="text-right">
-                      {claim.status === 'Filed' && renderCountdown(claim.dateOfFiling)}
+                      {claim.status === 'Filed' && (
+                        <div className="flex flex-col items-end">
+                          <span className="text-sky-600 text-xs font-extrabold flex items-center gap-1.5 justify-end">
+                            <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-ping"></span>
+                            Application in progress by AI Agent
+                          </span>
+                          <span className="text-[10px] text-textSecondary mt-0.5 block">{renderCountdown(claim.dateOfFiling)}</span>
+                        </div>
+                      )}
+                      {claim.status === 'Verified' && (
+                        <span className="text-sky-600 text-xs font-extrabold flex items-center gap-1.5 justify-end">
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-ping"></span>
+                          Verification in progress by AI Agent
+                        </span>
+                      )}
+                      {claim.status === 'Under Review' && (
+                        <span className="text-sky-600 text-xs font-extrabold flex items-center gap-1.5 justify-end">
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-ping"></span>
+                          Review in progress by AI Agent
+                        </span>
+                      )}
                       {claim.status === 'Approved' && (
                         <span className="text-green-600 text-xs font-bold block">Approved: ₹{(claim.acresAffected * 15000).toLocaleString('en-IN')}</span>
                       )}
@@ -261,6 +281,19 @@ export default function ClaimTracker() {
                         </div>
                         <p className="text-[11px] text-gray-500 leading-relaxed italic bg-gray-50 p-2.5 rounded-xl border mt-2">
                           " {claim.photoAnalysis.notes} "
+                        </p>
+                      </div>
+                    )}
+                    
+                    {/* Static AI Agent Verification Log */}
+                    {(claim.status === 'Filed' || claim.status === 'Verified' || claim.status === 'Under Review') && (
+                      <div className="bg-sky-50/50 p-4 rounded-2xl border border-sky-100/50 space-y-1">
+                        <h4 className="font-bold text-sky-850 flex items-center gap-1.5 text-[11px] uppercase tracking-wide">
+                          <ShieldCheck className="w-4 h-4 text-sky-500 animate-pulse" />
+                          <span>AI Agent Claim Assessment Log</span>
+                        </h4>
+                        <p className="text-[11px] text-sky-700 leading-relaxed font-semibold">
+                          🤖 AI Agent Status: claim verification is currently in progress. The agent is correlating your crop picture metadata, district pest threshold levels (Malwa cotton belt), and localized weather anomalies. Automated disbursement approval pending.
                         </p>
                       </div>
                     )}

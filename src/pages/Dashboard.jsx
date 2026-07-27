@@ -3,9 +3,9 @@ import { useNavigate, Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { getFarmerProfile, getClaims } from '../services/firebase';
 import { getWeatherForecast } from '../services/weather';
-import { callGemini } from '../services/gemini';
+import { callGemini, extractJSON } from '../services/gemini';
 import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
-import { AlertTriangle, CloudSun, Shield, Calendar, AlertCircle, ArrowRight, Clock, MessageSquare } from 'lucide-react';
+import { AlertTriangle, CloudSun, Shield, Calendar, AlertCircle, ArrowRight, Clock, MessageSquare, FileText } from 'lucide-react';
 
 const DISTRICT_COORDS = {
   "Amritsar": { lat: 31.634, lon: 74.872 },
@@ -126,9 +126,10 @@ Respond ONLY in JSON format:
 
     try {
       const responseText = await callGemini(prompt, systemContext);
-      // Strip markdown code block wrappers if any
-      const cleaned = responseText.replace(/```json|```/g, '').trim();
+      const cleaned = extractJSON(responseText);
+      if (!cleaned) throw new Error("JSON extraction returned empty/null");
       const parsed = JSON.parse(cleaned);
+      if (!parsed || typeof parsed !== 'object') throw new Error("Parsed JSON is not an object");
       setRiskData(parsed);
     } catch (e) {
       console.error("Failed to parse Gemini risk assessment, loading fallback.", e);
@@ -205,6 +206,39 @@ Respond ONLY in JSON format:
     );
   };
 
+  const getPolicyDetails = (policyKey) => {
+    const policyNames = {
+      PMFBY: "PMFBY (Pradhan Mantri Fasal Bima Yojana)",
+      RWBCIS: "RWBCIS (Restructured Weather Based Crop Insurance)",
+      UPIS: "UPIS (Unified Package Insurance Scheme - Pilot)",
+      Kshema: "Kshema Private Insurance"
+    };
+    
+    const policyCovers = {
+      PMFBY: "Pre-sowing to post-harvest yield shortfall protection.",
+      RWBCIS: "Index-based weather deviations (rainfall, temp, winds) protection.",
+      UPIS: "Unified crop, implements, life, and household package protection.",
+      Kshema: "Comprehensive individual damage inspection and fast payout."
+    };
+
+    const acres = profile?.landSize || 1;
+    const valuePerAcre = 24000;
+    const totalSumInsured = acres * valuePerAcre;
+    
+    let rate = 0.02;
+    if (policyKey === 'PMFBY') rate = 0.015;
+    if (policyKey === 'Kshema') rate = 0.045;
+    
+    const premium = totalSumInsured * rate;
+    
+    return {
+      name: policyNames[policyKey] || policyKey,
+      coverageText: policyCovers[policyKey] || "Crop safety protection coverage.",
+      premium: `₹${premium.toLocaleString('en-IN')}`,
+      coverage: `₹${totalSumInsured.toLocaleString('en-IN')}`
+    };
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 pb-20 md:pb-6">
       {/* Welcome Banner */}
@@ -223,6 +257,48 @@ Respond ONLY in JSON format:
           </div>
         </div>
       )}
+
+      {/* --- QUICK ACTIONS GRID --- */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <Link 
+          to="/enroll" 
+          className="bg-white rounded-3xl p-5 border border-green-50 shadow-sm hover:shadow-md hover:border-green-200 transition-all text-center flex flex-col items-center justify-center gap-3 group cursor-pointer"
+        >
+          <div className="w-12 h-12 rounded-full bg-green-50 text-primary-green flex items-center justify-center group-hover:scale-105 transition-all">
+            <Shield className="w-6 h-6" />
+          </div>
+          <div className="space-y-0.5">
+            <span className="text-sm font-bold text-textPrimary block">Get Insurance</span>
+            <span className="text-[10px] text-textSecondary block">Enrollment Wizard (60s)</span>
+          </div>
+        </Link>
+
+        <Link 
+          to="/claim" 
+          className="bg-white rounded-3xl p-5 border border-green-50 shadow-sm hover:shadow-md hover:border-green-200 transition-all text-center flex flex-col items-center justify-center gap-3 group cursor-pointer"
+        >
+          <div className="w-12 h-12 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center group-hover:scale-105 transition-all">
+            <FileText className="w-6 h-6" />
+          </div>
+          <div className="space-y-0.5">
+            <span className="text-sm font-bold text-textPrimary block">File a Claim</span>
+            <span className="text-[10px] text-textSecondary block">Register crop damage</span>
+          </div>
+        </Link>
+
+        <Link 
+          to="/chat" 
+          className="bg-white rounded-3xl p-5 border border-green-50 shadow-sm hover:shadow-md hover:border-green-200 transition-all text-center flex flex-col items-center justify-center gap-3 group cursor-pointer"
+        >
+          <div className="w-12 h-12 rounded-full bg-sky-50 text-sky-600 flex items-center justify-center group-hover:scale-105 transition-all">
+            <MessageSquare className="w-6 h-6" />
+          </div>
+          <div className="space-y-0.5">
+            <span className="text-sm font-bold text-textPrimary block">Talk to Agent</span>
+            <span className="text-[10px] text-textSecondary block">Voice help in Punjabi/Hindi</span>
+          </div>
+        </Link>
+      </div>
 
       {/* --- SECTION A: RISK FORECAST CARD --- */}
       <div className="bg-white rounded-3xl shadow-sm border border-green-50 p-6 space-y-6">
@@ -354,39 +430,86 @@ Respond ONLY in JSON format:
         )}
       </div>
 
-      {/* --- SECTION B: INSURANCE RECOMMENDATION CARD --- */}
-      <div className="bg-white rounded-3xl shadow-sm border border-green-50 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-green-50 rounded-2xl shrink-0">
-            <Shield className="w-7 h-7 text-primary-green" />
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-bold text-textPrimary">{t('recommendedInsurance')}</h2>
-              <span className="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                Active Match
-              </span>
+      {/* --- SECTION B: INSURANCE RECOMMENDATION/ACTIVE CARD --- */}
+      {profile?.enrolledPolicy && profile.enrolledPolicy !== 'None' ? (
+        (() => {
+          const details = getPolicyDetails(profile.enrolledPolicy);
+          return (
+            <div className="bg-gradient-to-r from-emerald-50 to-emerald-100/30 rounded-3xl shadow-sm border border-emerald-200 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 transition-all animate-fadeIn">
+              <div className="flex items-start gap-4">
+                <div className="p-3 bg-emerald-600 text-white rounded-2xl shrink-0">
+                  <Shield className="w-7 h-7" />
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-lg font-bold text-emerald-950">{t('activePolicy')}</h2>
+                    <span className="bg-emerald-100 text-emerald-800 text-[10px] font-extrabold px-2.5 py-1 rounded-full uppercase tracking-wider flex items-center gap-1.5 animate-pulse">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                      {t('enrolledStatus')}
+                    </span>
+                  </div>
+                  <p className="text-sm font-extrabold text-emerald-900">
+                    {details.name}
+                  </p>
+                  <p className="text-xs text-textSecondary max-w-xl">
+                    {details.coverageText}
+                  </p>
+                  <div className="flex gap-6 pt-2 text-xs">
+                    <div>
+                      <span className="text-gray-400 block font-semibold">{t('premiumPaid')}</span>
+                      <strong className="text-emerald-900 text-sm font-extrabold">{details.premium}</strong>
+                    </div>
+                    <div className="border-l border-emerald-200 pl-6">
+                      <span className="text-gray-400 block font-semibold">{t('sumInsured')}</span>
+                      <strong className="text-emerald-950 text-sm font-extrabold">{details.coverage}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <Link 
+                to="/policy" 
+                className="flex items-center justify-center gap-2 px-5 py-3 bg-white hover:bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold rounded-2xl transition-all text-sm group shrink-0"
+              >
+                <span>{t('changePolicy')}</span>
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
             </div>
-            <p className="text-sm font-semibold text-textPrimary">
-              {profile?.primaryCrop === 'Cotton' 
-                ? 'RWBCIS (Restructured Weather Based Crop Insurance Scheme)' 
-                : 'PMFBY (Pradhan Mantri Fasal Bima Yojana)'}
-            </p>
-            <p className="text-xs text-textSecondary max-w-xl">
-              {profile?.primaryCrop === 'Cotton'
-                ? 'Recommended for Mansa cotton belt. Rapid 45-day claim settlement trigger is indexed on high temperature and deficit rain deviations.'
-                : 'Highly recommended yield protection. Fully subsidized by the government, protecting you from sowing to post-harvest losses.'}
-            </p>
+          );
+        })()
+      ) : (
+        <div className="bg-white rounded-3xl shadow-sm border border-green-50 p-6 flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-start gap-4">
+            <div className="p-3 bg-green-50 rounded-2xl shrink-0">
+              <Shield className="w-7 h-7 text-primary-green" />
+            </div>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-textPrimary">{t('recommendedInsurance')}</h2>
+                <span className="bg-green-100 text-green-800 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                  Active Match
+                </span>
+              </div>
+              <p className="text-sm font-semibold text-textPrimary">
+                {profile?.primaryCrop === 'Cotton' 
+                  ? 'RWBCIS (Restructured Weather Based Crop Insurance Scheme)' 
+                  : 'PMFBY (Pradhan Mantri Fasal Bima Yojana)'}
+              </p>
+              <p className="text-xs text-textSecondary max-w-xl">
+                {profile?.primaryCrop === 'Cotton'
+                  ? 'Recommended for Mansa cotton belt. Rapid 45-day claim settlement trigger is indexed on high temperature and deficit rain deviations.'
+                  : 'Highly recommended yield protection. Fully subsidized by the government, protecting you from sowing to post-harvest losses.'}
+              </p>
+            </div>
           </div>
+          <Link 
+            to="/enroll" 
+            className="flex items-center justify-center gap-2 px-5 py-3 bg-green-50 hover:bg-green-100 text-primary-green font-bold rounded-2xl transition-all text-sm group shrink-0"
+          >
+            <span>{t('applyNow')}</span>
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+          </Link>
         </div>
-        <Link 
-          to="/policy" 
-          className="flex items-center justify-center gap-2 px-5 py-3 bg-green-50 hover:bg-green-100 text-primary-green font-bold rounded-2xl transition-all text-sm group shrink-0"
-        >
-          <span>{t('seeAllOptions')}</span>
-          <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-        </Link>
-      </div>
+      )}
 
       {/* --- SECTION C: ACTIVE CLAIMS STATUS --- */}
       <div className="bg-white rounded-3xl shadow-sm border border-green-50 p-6 space-y-4">
@@ -463,7 +586,27 @@ Respond ONLY in JSON format:
                   {/* Timer and Action panel */}
                   <div className="flex flex-col sm:flex-row items-center justify-between pt-3 border-t border-green-50 gap-3 text-xs">
                     <div>
-                      {claim.status === 'Filed' && renderCountdown(claim.dateOfFiling)}
+                      {claim.status === 'Filed' && (
+                        <div className="flex flex-col items-start">
+                          <span className="text-sky-600 font-bold flex items-center gap-1.5">
+                            <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-ping"></span>
+                            Application in progress by AI Agent
+                          </span>
+                          <span className="text-[10px] text-textSecondary mt-0.5 block">{renderCountdown(claim.dateOfFiling)}</span>
+                        </div>
+                      )}
+                      {claim.status === 'Verified' && (
+                        <span className="text-sky-600 font-bold flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-ping"></span>
+                          Verification in progress by AI Agent
+                        </span>
+                      )}
+                      {claim.status === 'Under Review' && (
+                        <span className="text-sky-600 font-bold flex items-center gap-1.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-ping"></span>
+                          Review in progress by AI Agent
+                        </span>
+                      )}
                       {claim.status === 'Approved' && (
                         <span className="text-green-600 font-bold">Compensation Approved: ₹{claim.acresAffected * 15000}</span>
                       )}

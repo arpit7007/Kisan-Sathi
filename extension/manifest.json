@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "KisanSaathi AI Autofill Agent",
+  "version": "1.0",
+  "description": "Automatically syncs and autofills farmer details on the PMFBY crop insurance portal.",
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "https://pmfby.gov.in/*",
+    "http://localhost:5173/*",
+    "https://*.vercel.app/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "http://localhost:5173/*",
+        "https://*.vercel.app/*",
+        "https://pmfby.gov.in/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
