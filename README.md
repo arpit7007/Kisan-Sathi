@@ -9,7 +9,7 @@ Designed mobile-first with zero paid APIs (running entirely on free tiers), it s
 
 ## Live Demo and Production Builds
 
-* **Live Demo URL:**[ [https://kisan-sathi.web.app](https://kisan-sathi-xi.vercel.app/)
+* **Live Demo URL:**[https://kisan-sathi.web.app](https://kisan-sathi-xi.vercel.app/)
 * **GitHub Repository:** [https://github.com/arpit7007/Kisan-Sathi](https://github.com/arpit7007/Kisan-Sathi)
 * **Video Demonstration:** [Link to Demonstration Video]
 
