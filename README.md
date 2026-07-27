@@ -1,80 +1,156 @@
 # KisanSaathi (ਕਿਸਾਨ ਸਾਥੀ | किसान साथी)
-> **"Ek kaam karo, baaki sab KisanSaathi karega"** *(One action, KisanSaathi handles the rest)*
+> Technical documentation and system architecture for the KisanSaathi agricultural AI companion.
 
-KisanSaathi is an agentic AI companion designed for Indian farmers that predicts localized agricultural risks, provides personalized crop insurance advisory, scans government documents via AI vision, and generates ready-to-submit official policy applications as PDFs—all via voice in Punjabi, Hindi, and English. Designed mobile-first with zero paid APIs (running entirely on free tiers), it serves as a digital bridge to protect India's 146 million farmers from devastating crop losses. The platform features an onboarding configuration wizard for farmer profiling; a live dashboard parsing 14-day Open-Meteo weather forecasts to calculate risk metrics, top threats, and sowing advice; a conversational voice chat interface utilizing browser-native speech recognition and synthesis for native language queries; a document scanning wizard that uses Gemini Vision to extract Aadhaar and Jamabandi details, cross-validates farmer names to detect mismatches, and suggests policies; a jsPDF generator compiling documents with embedded Aadhaar and land record image attachments; an AI crop doctor claim-filing process utilizing vision to assess crop damage severity; and an active claims tracker featuring a visual timeline, a 72-hour countdown clock, and a debug simulator to fast-track claim status for evaluation.
+KisanSaathi is an agentic AI companion designed for Indian farmers. It predicts localized agricultural risks, provides personalized crop insurance advisory, scans government documents via AI vision, and generates ready-to-submit official policy applications as PDFs—all via voice in Punjabi, Hindi, and English.
+
+Designed mobile-first with zero paid APIs (running entirely on free tiers), it serves as a digital bridge to protect India's 146 million farmers from devastating crop losses.
+
+---
+
+## Live Demo and Production Builds
+
+* **Live Demo URL:** [https://kisan-sathi.web.app](https://kisan-sathi.web.app) (Replace with your actual deployment link)
+* **GitHub Repository:** [https://github.com/arpit7007/Kisan-Sathi](https://github.com/arpit7007/Kisan-Sathi)
+* **Video Demonstration:** [Link to Demonstration Video]
 
 ---
 
 ## System Architecture
 
-The following diagram illustrates the system architecture of the KisanSaathi application, showing how the frontend, local storage caches, native Web APIs, and external free service layers interact:
+The following diagram illustrates the high-level system architecture of the KisanSaathi application, showing how the client-side React UI interacts with the free API tiers, database services, browser-native APIs, and generative AI models:
+
 ![App Screenshot](src/assets/screenshot1.png)
-
----
-
-## Hackathon Hero Demo (60-Second Zero-Typing Flow)
-
-The primary feature designed for hackathon judges is the 60-Second Insurance Enrollment Wizard. The step-by-step document parsing, validation, and output compilation flow works as follows:
 
 ```mermaid
 graph TD
-    Start([Start Wizard]) --> ScanAadhaar[1. Scan Aadhaar Photo]
-    ScanAadhaar --> GeminiAadhaar[Gemini Vision OCR Details Extraction]
-    GeminiAadhaar --> ScanLand[2. Scan Land Record / Jamabandi]
-    ScanLand --> GeminiLand[Gemini Vision Land Data Extraction]
-    GeminiLand --> NameCheck{Name Match Validation}
-    NameCheck -- Mismatch --> Warn[Display Name Mismatch Badge Warning]
-    NameCheck -- Match --> PolicyRec[3. Policy Recommendation Card Selection]
-    Warn --> PolicyRec
-    PolicyRec --> PDFBuild[4. PDF Generation & Local Application Cache]
-    PDFBuild --> Complete([Download Filled PDF Application])
+    subgraph Client Application Layer (React + Vite)
+        UI[Farmer Dashboard / Wizard UI]
+        VoiceS[Voice Service: Web Speech API STT/TTS]
+        PDFGen[PDF Service: jsPDF Document Compiler]
+        LocalCache[LocalStorage Cache & Fallbacks]
+    end
+
+    subgraph Core AI Layer (Google AI Studio)
+        GeminiText[Gemini 3.1 Flash Lite: Text Agent / Intent Classifier]
+        GeminiVision[Gemini 3.1 Flash Lite: Document OCR & Crop Doctor]
+    end
+
+    subgraph Data & External Services
+        Firebase[Firebase Spark Plan: Firestore DB]
+        OpenMeteo[Open-Meteo Weather API]
+    end
+
+    UI --> VoiceS
+    UI --> PDFGen
+    UI --> LocalCache
+    UI --> GeminiText
+    UI --> GeminiVision
+    UI --> OpenMeteo
+    LocalCache --> Firebase
 ```
 
-### Detailed Flow Steps
-1. **Aadhaar Scan:** The farmer takes or uploads a photo of their Aadhaar Card. Gemini Vision OCR extracts their full name, 12-digit Aadhaar number, and date of birth, displaying it for confirmation.
-2. **Land Record Scan:** The farmer uploads a photo of their Jamabandi/land record. Gemini Vision extracts the district, acreage, and irrigation type. It automatically cross-checks the name against the Aadhaar name and raises a warning in case of name mismatches.
-3. **AI Policy Advisor:** KisanSaathi recommends either PMFBY (yield-based) or RWBCIS (weather-based) based on crop risk profiles. The agent speaks out the recommendation and reasoning in the farmer's native tongue.
-4. **Instant PDF Generation:** The app compiles all details, embeds the scanned document photos, adds a signature block, and exports a signed application as `KisanSaathi_[FarmerName]_Application.pdf` using jsPDF.
-5. **No Typing Required:** The farmer completes the entire government enrollment process using voice and camera in under 60 seconds.
+---
+
+## AI Architecture and Model Execution Pipelines
+
+KisanSaathi coordinates multiple lightweight, free-tier models and browser APIs to execute complex agricultural intelligence tasks. Below is the detailed orchestration flow of user queries, base64 image data streams, and intent routing:
+
+```mermaid
+graph TD
+    subgraph Client Application Layer
+        UserSpeech[User Speech Input] -->|Web Speech STT| UserText[Raw English/Hindi/Punjabi Text]
+        Docs[Aadhaar / Jamabandi Scans] -->|Base64 Conversion| ImageStream[Base64 Image Streams]
+    end
+
+    subgraph Orchestration Router
+        UserText -->|Low-Temp Intent Call| IntentClassifier[Gemini 3.1 Flash Lite Intent Classifier]
+        IntentClassifier -->|Classified Intent| Router{Routing Logic}
+    end
+
+    subgraph Service Handlers
+        Router -->|ENROLL_REQUEST| EnrollService[Enrollment Wizard Process]
+        Router -->|CLAIM_START| ClaimService[AI Crop Doctor Vision Analysis]
+        Router -->|RISK_QUESTION| RiskService[Open-Meteo Weather Analytics]
+        Router -->|OTHER / GREETING| ConversationalService[Gemini Chat Response]
+    end
+
+    subgraph AI Processing Engine
+        EnrollService & ClaimService -->|Image + Structured Prompt| GeminiVision[Gemini 3.1 Flash Lite Vision Model]
+        RiskService -->|Telemetry + Profile Prompt| GeminiText[Gemini 3.1 Flash Lite Text Model]
+        ConversationalService -->|System Prompt Context| GeminiText
+    end
+
+    subgraph Document Compilation
+        GeminiVision -->|Structured OCR JSON| LocalState[React Application State]
+        LocalState -->|jsPDF Generator| PDFFile[Signed PDF Application Document]
+    end
+```
+
+### 1. Zero-Typing Enrollment Pipeline
+* **Step 1: Aadhaar OCR Analysis:** The user takes or uploads a photo of their Aadhaar card. The binary image is converted to a base64-encoded string and dispatched to Gemini 3.1 Flash Lite via the REST vision API. The model executes zero-shot OCR extraction, returning structured JSON containing `name`, `aadhaarNumber`, and `dob`.
+* **Step 2: Jamabandi Land Record OCR Analysis:** The user uploads their land record document. Gemini Vision extracts the `district`, `totalAcres`, and `landType` (irrigated or rainfed).
+* **Step 3: Name Mismatch Cross-Validation:** To prevent fraud and application rejections, the application state controller executes a name-matching script comparing the extracted name from Aadhaar with the name on the Jamabandi record. If a difference is detected, a warning badge is rendered, alerting the farmer of the discrepancy prior to submission.
+* **Step 4: Algorithmic Policy Recommendation:** A structured request containing the farmer's crop profiles and current district weather forecasts is sent to Gemini. It evaluates risk parameters (such as drought indices or pest warnings) to recommend either the yield-based PMFBY (Pradhan Mantri Fasal Bima Yojana) or the weather-based RWBCIS (Restructured Weather Based Crop Insurance Scheme).
+* **Step 5: Client-Side PDF Generation:** The compiled data, including metadata and base64 document attachments, is parsed by the jsPDF engine. It compiles a two-page official application format, integrates signature spaces, embeds the scanned document images, and downloads the PDF directly onto the device.
+
+### 2. Conversational Intent Routing and User Input Isolation
+To guarantee robust operations when utilizing free-tier fallbacks, the system employs an input isolation routing strategy:
+* The raw user query is separated from the larger instructions template using a distinct parsing marker.
+* The system evaluates the raw text parameters to classify the query into one of seven enums: `RISK_QUESTION`, `POLICY_QUESTION`, `CLAIM_START`, `ENROLL_REQUEST`, `FARMING_ADVICE`, `GREETING`, or `OTHER`.
+* This isolation prevents the AI model from matching options in the system prompt instructions, eliminating false-positive routing bugs.
+
+### 3. Generative Agricultural Risk Synthesis
+The risk scoring system updates dynamically using real-time meteorology:
+* The system queries the Open-Meteo API for 14-day forecasts matching the coordinates of the farmer's district.
+* It transmits a structured telemetry array (temperature trends, precipitation totals, humidity thresholds) to Gemini along with the farmer's crop type.
+* The model analyzes the crop's threshold metrics (e.g. humidity bounds for cotton pests like Whitefly) to calculate a localized risk rating (0-100 score), outline top threats, and generate weekly sowing schedules.
 
 ---
 
-## Key Features
+## Data Management and Sync Architecture
 
-* **Voice Companion:** Completely native text-to-speech and speech-to-text integration in Punjabi (Gurmukhi), Hindi (Devanagari), and English for conversational engagement.
-* **Crop Risk Weather Dashboard:** Fetches live 14-day forecasts from the Open-Meteo API and passes data to Gemini to estimate localized risks (0-100 score), outline top threats (such as Whitefly in cotton), and output weekly sowing alerts.
-* **AI Crop Doctor (Vision):** Analyzes uploaded crop damage photos using Gemini Vision. It detects pest attacks or diseases, reports severity, and checks policy coverage.
-* **Claim Deadline Tracker:** Files claims into Firestore and tracks the crucial 72-hour claim notification window with a live countdown clock. Includes a "Fast-Track" debug button so judges can advance claim statuses through the pipeline.
+KisanSaathi combines client-side caching with cloud synchronization to support offline-first operations in rural areas where network access may be unstable:
+
+```mermaid
+graph LR
+    LocalUI[React App State] -->|Double-Cache Sync| LocalCache[(Browser LocalStorage)]
+    LocalCache -->|Background Sync| Firestore[(Firebase Firestore DB)]
+    Firestore -->|Data Restoration| LocalCache
+```
+
+* **Local Storage Caching:** All onboarded farmer profiles and filed claims are cached instantly in the browser's LocalStorage.
+* **Firestore Sync Layer:** When internet connectivity is active, data syncs automatically with Firestore using Firebase Spark anonymous authentication.
+* **Graceful Degradation:** If cloud transactions fail or API limits are hit, the application falls back to local data and local mock models, ensuring uninterrupted service.
 
 ---
 
-## The Tech Stack (100% Free & Spark Tiers)
+## Core Tech Stack
 
 | Technology | Role | Tier & Pricing |
 | :--- | :--- | :--- |
 | **Vite + React 18** | Frontend Application Framework | Open-Source |
 | **TailwindCSS** | Clean, Modern UI & Mobile Layouts | Open-Source |
-| **Gemini 3.5 Flash** | OCR, Intent Classification, Risk Assessment | Free Tier (60 RPM / 1500 daily requests) |
-| **Web Speech API** | Punjabi & Hindi STT / TTS | Free (Native Browser Engines) |
+| **Gemini 3.1 Flash Lite** | OCR, Intent Classification, Risk Assessment | Free Tier (60 RPM / 1500 daily requests) |
+| **Web Speech API** | Punjabi & Hindi Speech-to-Text / Text-to-Speech | Free (Native Browser Engines) |
 | **jsPDF** | Image embedding & filled application downloads | Open-Source |
 | **Firebase Spark** | Firestore Database & Anonymous Auth | Free Tier (1GB DB size, 50k reads/day) |
 | **Open-Meteo API** | 14-day weather forecasts | Free (No API Key Required) |
 
 ---
 
-## Project Architecture & File Routing
+## Project Structure and Route Organization
 
 * [App.jsx](file:///c:/Users/mailt/OneDrive/Desktop/KISAN%20SATHI/src/App.jsx): Registers application routes:
-  * `/` : Landing portal with Punjabi/Hindi configuration.
+  * `/` : Landing portal with language preferences.
   * `/onboard` : Wizard onboarding profile (Name, District, Crops).
   * `/dashboard` : Core panel showcasing the Risk circular gauge, weather charts, and active claims.
-  * `/enroll` : 4-step OCR scan wizard and pdf generator.
+  * `/enroll` : 4-step OCR scan wizard and PDF generator.
   * `/chat` : Voice agent conversation dashboard.
   * `/claim` : Crop damage assessment & filing page.
   * `/status` : Claim progress and countdown tracking screen.
-* [gemini.js](file:///c:/Users/mailt/OneDrive/Desktop/KISAN%20SATHI/src/services/gemini.js): Houses Google Gemini AI integration (with mock fallbacks).
+* [gemini.js](file:///c:/Users/mailt/OneDrive/Desktop/KISAN%20SATHI/src/services/gemini.js): Houses Google Gemini AI integration.
 * [pdf.js](file:///c:/Users/mailt/OneDrive/Desktop/KISAN%20SATHI/src/services/pdf.js): Controls PDF document structuring and image encoding.
-* [firebase.js](file:///c:/Users/mailt/OneDrive/Desktop/KISAN%20SATHI/src/services/firebase.js): Handles database transactions (with local storage redundancy).
+* [firebase.js](file:///c:/Users/mailt/OneDrive/Desktop/KISAN%20SATHI/src/services/firebase.js): Handles database transactions.
 * [voice.js](file:///c:/Users/mailt/OneDrive/Desktop/KISAN%20SATHI/src/services/voice.js): Orchestrates speech-to-text listener and text-to-speech outputs.
 
 ---
@@ -82,7 +158,7 @@ graph TD
 ## How to Run Locally
 
 ### 1. Set Up Environment Variables
-Create a `.env` file in the root directory and add the following keys (fill in your free Gemini API and Firebase keys):
+Create a `.env` file in the root directory and add the following keys:
 ```env
 VITE_GEMINI_API_KEY=your_gemini_api_key
 VITE_FIREBASE_API_KEY=your_firebase_api_key
@@ -106,14 +182,16 @@ Open `http://localhost:5173` to run the application.
 
 ---
 
-## Quick Demonstration Guide for Judges
+## Step-by-Step Judge Demonstration Script
 
-1. **Start:** Click "Start in Punjabi" on the Landing Page.
-2. **Onboard:** Type a farmer name, choose **Mansa** district, choose **Cotton** crop, and select **No** for crop insurance.
-3. **Dashboard:** Observe the circular **Risk Score Gauge** (Cotton in Mansa will trigger a high threat level due to humidity and Whitefly pest warnings).
-4. **Get Insurance:** Tap **Get Insurance** under Quick Actions.
-5. **Step 1 (Scan Aadhaar):** Upload a mock Aadhaar photo. Confirm the extracted name and DOB.
-6. **Step 2 (Scan Land Record):** Upload a mock land record sheet. Check the extracted district and acreage details. 
-7. **Step 3 (Advisory):** Listen to the voice companion recommend **RWBCIS** due to Mansa's high-humidity pest thresholds. Confirm and click Next.
-8. **Step 4 (Download):** Click **Download Application PDF** to inspect the clean, beautifully laid out 2-page document containing all details and both scanned images.
-9. **Claim Filing:** Navigate to **File a Claim**. Upload a crop damage photo to see Gemini analyze pest damage severity. Submit and review the 72-hour countdown timer in the active tracking list.
+To evaluate the application's capabilities, follow this verification workflow:
+1. **Language Initialization:** Click "Start in Punjabi" on the Landing Page.
+2. **Farmer Profiling:** On the onboarding screen, enter a name, choose **Mansa** district, choose **Cotton** crop, and select **No** for crop insurance.
+3. **Risk Scoring Review:** Observe the circular **Risk Score Gauge** on the Dashboard. Cotton in Mansa will trigger a high threat level due to humidity and Whitefly pest warnings.
+4. **Initiate Wizard:** Tap **Get Insurance** under Quick Actions.
+5. **Document Scanner Execution:**
+   - **Step 1 (Scan Aadhaar):** Upload a mock Aadhaar photo. Confirm the extracted name and DOB.
+   - **Step 2 (Scan Land Record):** Upload a mock land record sheet. Check the extracted district and acreage details.
+6. **Policy Recommendation:** On Step 3, listen to the voice companion recommend **RWBCIS** due to Mansa's high-humidity pest thresholds. Confirm and click Next.
+7. **PDF Validation:** Click **Download Application PDF** on Step 4. Inspect the downloaded document containing your details and both scanned images.
+8. **Claim Filing:** Navigate to **File a Claim**. Upload a crop damage photo to see Gemini analyze pest damage severity. Submit and review the 72-hour countdown timer in the active tracking list.
