@@ -10,34 +10,6 @@ KisanSaathi is an agentic AI companion designed for Indian farmers that predicts
 The following diagram illustrates the system architecture of the KisanSaathi application, showing how the frontend, local storage caches, native Web APIs, and external free service layers interact:
 ![App Screenshot](src/assets/screenshot1.png)
 
-```mermaid
-graph TD
-    subgraph Client Application (React + Vite)
-        UI[Farmer Dashboard / Wizard UI]
-        VoiceS[Voice Service: Web Speech API STT/TTS]
-        PDFGen[PDF Service: jsPDF Document Compiler]
-        LocalCache[LocalStorage Cache & Fallbacks]
-    end
-
-    subgraph Core AI Layer (Google AI Studio)
-        GeminiText[Gemini 3.5 Flash: Text Agent / Intent Classifier]
-        GeminiVision[Gemini 3.5 Flash: Document OCR & Crop doctor]
-    end
-
-    subgraph Data & External Services
-        Firebase[Firebase Spark Plan: Firestore DB]
-        OpenMeteo[Open-Meteo Weather API]
-    end
-
-    UI --> VoiceS
-    UI --> PDFGen
-    UI --> LocalCache
-    UI --> GeminiText
-    UI --> GeminiVision
-    UI --> OpenMeteo
-    LocalCache --> Firebase
-```
-
 ---
 
 ## Hackathon Hero Demo (60-Second Zero-Typing Flow)
