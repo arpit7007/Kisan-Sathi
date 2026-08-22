@@ -256,7 +256,7 @@ Respond ONLY in JSON format:
               <span>🌾 Sat Sri Akal, {profile.name}!</span>
             </h1>
             <p className="text-green-50 text-sm max-w-lg">
-              {t('dashboardTitle')} for your farm in <span className="underline decoration-wheat-gold decoration-2 font-bold">{profile.district}</span>. Primary Crop: <span className="font-semibold">{profile.primaryCrop}</span> ({profile.landSize} Acres).
+              {t('dashboardTitle')} for your farm in <span className="font-bold text-amber-300">{profile.district}</span>. Primary Crop: <span className="font-semibold">{profile.primaryCrop}</span> ({profile.landSize} Acres).
             </p>
           </div>
         </div>
