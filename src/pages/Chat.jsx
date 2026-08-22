@@ -5,15 +5,23 @@ import { safeStr } from '../utils/safeStr';
 import { getFarmerProfile, saveFarmerProfile } from '../services/firebase';
 import { callGemini } from '../services/gemini';
 import { startListening, stopListening, speak, stopSpeaking, isVoiceSupported } from '../services/voice';
-import { Mic, MicOff, Send, HelpCircle, AlertCircle, Tractor, ArrowLeft } from 'lucide-react';
+import { Mic, MicOff, Send, HelpCircle, AlertCircle, Tractor, ArrowLeft, RotateCcw } from 'lucide-react';
 
-export default function Chat() {
-  const { t, language } = useLanguage();
-  const location = useLocation();
-  const navigate = useNavigate();
+const CHAT_STORAGE_KEY = 'kisan_chat_history';
 
-  const [profile, setProfile] = useState(null);
-  const [messages, setMessages] = useState([
+const getInitialMessages = (language) => {
+  const saved = localStorage.getItem(CHAT_STORAGE_KEY);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    } catch (e) {
+      console.error("Failed to parse saved chat history:", e);
+    }
+  }
+  return [
     {
       sender: 'agent',
       text: language === 'pa' 
@@ -24,7 +32,16 @@ export default function Chat() {
       intent: 'GREETING',
       timestamp: Date.now()
     }
-  ]);
+  ];
+};
+
+export default function Chat() {
+  const { t, language } = useLanguage();
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const [profile, setProfile] = useState(null);
+  const [messages, setMessages] = useState(() => getInitialMessages(language));
 
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -33,6 +50,13 @@ export default function Chat() {
   const [voiceAvailable, setVoiceAvailable] = useState(true);
 
   const messagesEndRef = useRef(null);
+
+  // Persist messages to LocalStorage
+  useEffect(() => {
+    if (messages && messages.length > 0) {
+      localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(messages));
+    }
+  }, [messages]);
 
   // Auto-scroll chat feed
   const scrollToBottom = () => {
@@ -57,7 +81,6 @@ export default function Chat() {
     // Process initial follow-up query if routed from Dashboard/Claims
     if (location.state?.query) {
       handleSendText(location.state.query);
-      // Clear state so it doesn't trigger again on reload
       window.history.replaceState({}, document.title);
     }
   }, [location]);
@@ -69,6 +92,24 @@ export default function Chat() {
       stopListening();
     };
   }, []);
+
+  const handleClearChat = () => {
+    localStorage.removeItem(CHAT_STORAGE_KEY);
+    const fresh = [
+      {
+        sender: 'agent',
+        text: language === 'pa' 
+          ? "ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ! ਮੈਂ ਕਿਸਾਨਸਾਥੀ ਹਾਂ। ਮੈਂ ਤੁਹਾਡੀ ਫਸਲ ਦੇ ਜੋਖਮ, ਬੀਮਾ ਅਤੇ ਨੁਕਸਾਨ ਦੇ ਦਾਅਵੇ ਭਰਨ ਵਿੱਚ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ। ਤੁਸੀਂ ਕੁਝ ਵੀ ਪੁੱਛ ਸਕਦੇ ਹੋ।"
+          : (language === 'hi'
+            ? "नमस्ते! मैं किसानसाथी हूँ। मैं आपकी फसल के जोखिम, बीमा और दावे फाइल करने में सहायता कर सकता हूँ। आप कुछ भी पूछ सकते हैं।"
+            : "Hello! I am KisanSaathi. I can help you with crop risk, insurance policies, and filing damage claims. Ask me anything!"),
+        intent: 'GREETING',
+        timestamp: Date.now()
+      }
+    ];
+    setMessages(fresh);
+    localStorage.setItem(CHAT_STORAGE_KEY, JSON.stringify(fresh));
+  };
 
   const handleSendText = async (textToSend) => {
     if (!textToSend.trim()) return;
@@ -90,7 +131,6 @@ export default function Chat() {
     setIsProcessing(true);
     stopSpeaking();
 
-    // Check for static policy apply request
     const lowercaseText = userText.toLowerCase();
     const isApplyPolicyRequest = lowercaseText.includes("apply") || 
                                  lowercaseText.includes("enroll") || 
@@ -100,32 +140,18 @@ export default function Chat() {
                                  lowercaseText.includes("ਬੀਮਾ");
 
     if (isApplyPolicyRequest) {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      const primaryCrop = profile?.primaryCrop || 'Cotton';
-      const policyToEnroll = primaryCrop === 'Cotton' ? 'RWBCIS' : 'PMFBY';
-      
-      const uid = localStorage.getItem('kisan_current_uid');
-      if (uid && profile) {
-        const updatedProfile = { 
-          ...profile, 
-          hasInsurance: 'Yes', 
-          enrolledPolicy: policyToEnroll 
-        };
-        await saveFarmerProfile(uid, updatedProfile);
-        setProfile(updatedProfile);
-      }
-      
-      let responseText = `Done! I have successfully enrolled you in the recommended ${policyToEnroll} policy for your ${primaryCrop} crop. Your profile has been updated!`;
+      await new Promise(resolve => setTimeout(resolve, 600));
+      let responseText = "Great! Click the button below to open the digital insurance enrollment wizard whenever you are ready.";
       if (language === 'pa') {
-        responseText = `ਜੀ ਬਿਲਕੁਲ! ਮੈਂ ਤੁਹਾਡੀ ${primaryCrop === 'Cotton' ? 'ਕਪਾਹ' : 'ਕਣਕ'} ਦੀ ਫਸਲ ਲਈ ${policyToEnroll} ਬੀਮਾ ਯੋਜਨਾ ਵਿੱਚ ਤੁਹਾਨੂੰ ਸਫਲਤਾਪੂਰਵਕ ਦਰਜ ਕਰ ਦਿੱਤਾ ਹੈ। ਹੁਣ ਤੁਹਾਡਾ ਪ੍ਰੋਫਾਈਲ ਅੱਪਡੇਟ ਹੋ ਗਿਆ ਹੈ!`;
+        responseText = "ਬਹੁਤ ਵਧੀਆ! ਡਿਜੀਟਲ ਬੀਮਾ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਹੇਠਾਂ ਦਿੱਤੇ ਬਟਨ 'ਤੇ ਟੈਪ ਕਰੋ।";
       } else if (language === 'hi') {
-        responseText = `जी बिल्कुल! मैंने आपकी ${primaryCrop === 'Cotton' ? 'कपास' : 'गेहूं'} की फसल के लिए आपको ${policyToEnroll} बीमा योजना में पंजीकृत कर दिया है। आपका प्रोफ़ाइल अपडेट हो गया है!`;
+        responseText = "बहुत बढ़िया! डिजिटल बीमा नामांकन शुरू करने के लिए नीचे दिए गए बटन पर टैप करें।";
       }
       
       const agentMsg = {
         sender: 'agent',
         text: responseText,
-        intent: 'POLICY_ENROLLED',
+        intent: 'ENROLL_REQUEST',
         timestamp: Date.now()
       };
       
@@ -142,7 +168,7 @@ export default function Chat() {
     const secondaryCrop = profile?.secondaryCrop || 'None';
     const acres = profile?.landSize || '0';
     const insuranceStatus = profile?.hasInsurance || 'Not Sure';
-    const riskScore = '82'; // Mock or fetched from localStorage
+    const riskScore = '82';
     const topThreats = 'Whitefly Pest Outbreak';
 
     const systemPrompt = `You are KisanSaathi, a helpful farming assistant for Punjab farmers. 
@@ -168,11 +194,8 @@ Rules:
 - Always respond in the farmer's language (Punjabi, Hindi, or English)
 - Use simple words, no jargon
 - Be warm, like a helpful neighbor
-- When farmer describes crop damage, ask: What crop? What damage? How many acres affected? When did it happen?
-- After collecting damage info, say you will file the claim and summarize what you collected
-- Always remind about the 72-hour window for claims
 - Keep responses under 3 sentences for voice
-- If farmer says 'enroll' or 'insurance', respond: 'Great! Let's get you enrolled. Tap the button below to start the quick 60-second enrollment wizard!'`;
+- Do NOT say you will automatically redirect. Tell them to tap the action button below to proceed.`;
 
     // Intent classifier call
     const intentPrompt = `Classify this message intent as one of: 
@@ -210,32 +233,18 @@ Message: "${userText}"`;
 
       setMessages(prev => [...prev, agentMsg]);
       setIsProcessing(false);
-
-      // Speak response
       speak(agentReply, language);
-
-      // Auto-routing if intent is CLAIM_START or ENROLL_REQUEST!
-      if (cleanedIntent === 'CLAIM_START') {
-        setTimeout(() => {
-          navigate('/claim');
-        }, 2200);
-      } else if (cleanedIntent === 'ENROLL_REQUEST') {
-        setTimeout(() => {
-          navigate('/enroll');
-        }, 2200);
-      }
     } catch (e) {
       console.error("Gemini call error in chat, using offline conversational agent simulator:", e);
       setIsProcessing(false);
       
-      const lowercaseText = userText.toLowerCase();
       let responseText = "ਮੈਂ ਕਿਸਾਨਸਾਥੀ ਹਾਂ। ਮੈਂ ਤੁਹਾਡੀ ਫਸਲ ਦੇ ਜੋਖਮ, ਬੀਮਾ ਅਤੇ ਨੁਕਸਾਨ ਦੇ ਦਾਅਵੇ ਭਰਨ ਵਿੱਚ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ। ਤੁਸੀਂ ਕੁਝ ਵੀ ਪੁੱਛ ਸਕਦੇ ਹੋ।";
       let matchedIntent = 'OTHER';
       
       if (language === 'en') {
         responseText = "I am KisanSaathi. I can assist you with your crop risk, policy comparisons, and damage claims. Ask me anything!";
         if (lowercaseText.includes("damage") || lowercaseText.includes("claim") || lowercaseText.includes("spots") || lowercaseText === "yes" || lowercaseText.includes("file") || lowercaseText === "ok" || lowercaseText === "okay") {
-          responseText = "I detected crop damage details. Let's start filing a claim. Redirecting you to the claim filing page now...";
+          responseText = "I detected crop damage details. Tap the button below whenever you are ready to file your claim.";
           matchedIntent = 'CLAIM_START';
         } else if (lowercaseText.includes("enroll") || lowercaseText.includes("apply") || lowercaseText.includes("register")) {
           responseText = "Great! Tap the Start Enrollment button below and I will guide you through the quick enrollment wizard.";
@@ -250,7 +259,7 @@ Message: "${userText}"`;
       } else if (language === 'hi') {
         responseText = "मैं किसानसाथी हूँ। मैं आपकी फसल के जोखिम, बीमा और दावे फाइल करने में सहायता कर सकता हूँ।";
         if (lowercaseText.includes("nuksan") || lowercaseText.includes("claim") || lowercaseText.includes("daag") || lowercaseText === "yes" || lowercaseText === "हां" || lowercaseText === "जी" || lowercaseText.includes("फाइल")) {
-          responseText = "मैंने फसल के नुकसान की पहचान की है। आइए आपका बीमा दावा दर्ज करें। आपको दावा फाइलिंग पृष्ठ पर स्थानांतरित किया जा रहा है...";
+          responseText = "मैंने फसल के नुकसान की पहचान की है। अपना बीमा दावा दर्ज करने के लिए नीचे दिए गए बटन पर टैप करें।";
           matchedIntent = 'CLAIM_START';
         } else if (lowercaseText.includes("enroll") || lowercaseText.includes("apply") || lowercaseText.includes("bima") || lowercaseText.includes("insurance") || lowercaseText.includes("पंजीकृत")) {
           responseText = "बहुत बढ़िया! त्वरित नामांकन शुरू करने के लिए नीचे दिए गए बटन पर टैप करें।";
@@ -261,7 +270,7 @@ Message: "${userText}"`;
         }
       } else { // pa
         if (lowercaseText.includes("ਨੁਕਸਾਨ") || lowercaseText.includes("ਦਾਅਵਾ") || lowercaseText.includes("ਦਾਗ") || lowercaseText.includes("nuksan") || lowercaseText === "yes" || lowercaseText === "ਹਾਂ" || lowercaseText === "ਜੀ" || lowercaseText.includes("ਫਾਈਲ")) {
-          responseText = "ਮੈਂ ਸਮਝ ਸਕਦਾ ਹਾਂ, ਤੁਹਾਡੀ ਫਸਲ ਦਾ ਨੁਕਸਾਨ ਹੋਇਆ ਹੈ। ਆਓ ਦਾਅਵਾ ਦਰਜ ਕਰੀਏ। ਤੁਹਾਨੂੰ ਦਾਅਵਾ ਦਾਇਰ ਕਰਨ ਵਾਲੇ ਪੰਨੇ 'ਤੇ ਭੇਜਿਆ ਜਾ ਰਿਹਾ ਹੈ...";
+          responseText = "ਮੈਂ ਸਮਝ ਸਕਦਾ ਹਾਂ, ਤੁਹਾਡੀ ਫਸਲ ਦਾ ਨੁਕਸਾਨ ਹੋਇਆ ਹੈ। ਦਾਅਵਾ ਦਰਜ ਕਰਨ ਲਈ ਹੇਠਾਂ ਦਿੱਤੇ ਬਟਨ 'ਤੇ ਟੈਪ ਕਰੋ।";
           matchedIntent = 'CLAIM_START';
         } else if (lowercaseText.includes("ਰਜਿਸਟ੍ਰੇਸ਼ਨ") || lowercaseText.includes("ਲਾਗੂ") || lowercaseText.includes("ਬੀਮਾ") || lowercaseText.includes("enroll") || lowercaseText.includes("insurance")) {
           responseText = "ਬਹੁਤ ਵਧੀਆ! ਤੁਰੰਤ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਹੇਠਾਂ ਦਿੱਤੇ ਬਟਨ 'ਤੇ ਟੈਪ ਕਰੋ।";
@@ -281,17 +290,6 @@ Message: "${userText}"`;
       
       setMessages(prev => [...prev, staticMsg]);
       speak(responseText, language);
-
-      // Auto-navigate to appropriate page (offline mode)
-      if (matchedIntent === 'CLAIM_START') {
-        setTimeout(() => {
-          navigate('/claim');
-        }, 2200);
-      } else if (matchedIntent === 'ENROLL_REQUEST') {
-        setTimeout(() => {
-          navigate('/enroll');
-        }, 2200);
-      }
     }
   };
 
@@ -339,11 +337,21 @@ Message: "${userText}"`;
           </div>
         </div>
         
-        {profile && (
-          <span className="text-xs font-bold text-textPrimary bg-wheat/10 border border-wheat-gold/20 px-2.5 py-1 rounded-full">
-            👤 {profile.name}
-          </span>
-        )}
+        <div className="flex items-center gap-2">
+          {profile && (
+            <span className="text-xs font-bold text-textPrimary bg-wheat/10 border border-wheat-gold/20 px-2.5 py-1 rounded-full hidden sm:inline-block">
+              👤 {profile.name}
+            </span>
+          )}
+          <button
+            onClick={handleClearChat}
+            title="Clear Chat History"
+            className="px-2.5 py-1 text-xs font-bold text-gray-500 hover:text-red-600 bg-gray-50 hover:bg-red-50 border border-gray-200 rounded-full flex items-center gap-1 transition-all cursor-pointer"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>Clear</span>
+          </button>
+        </div>
       </div>
 
       {/* Messages Feed */}
@@ -359,15 +367,15 @@ Message: "${userText}"`;
             >
               {safeStr(msg.text, language)}
               
-              {/* Intent-based Contextual Actions */}
+              {/* Intent-based Contextual Action Buttons */}
               {msg.sender === 'agent' && msg.intent === 'CLAIM_START' && (
                 <div className="mt-3 pt-3 border-t border-green-100 flex flex-col gap-2">
                   <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">Suggested Action</span>
                   <button
                     onClick={() => navigate('/claim')}
-                    className="w-full py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold rounded-xl text-xs shadow-md transition-all active:scale-95 text-center"
+                    className="w-full py-2.5 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold rounded-xl text-xs shadow-md transition-all active:scale-95 text-center flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    {t('startClaimButton')}
+                    <span>{t('startClaimButton')} 🌾</span>
                   </button>
                 </div>
               )}
@@ -376,9 +384,9 @@ Message: "${userText}"`;
                   <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">Suggested Action</span>
                   <button
                     onClick={() => navigate('/policy')}
-                    className="w-full py-2 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl text-xs shadow-md transition-all active:scale-95 text-center"
+                    className="w-full py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white font-bold rounded-xl text-xs shadow-md transition-all active:scale-95 text-center flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    {t('seePoliciesButton')}
+                    <span>{t('seePoliciesButton')} 📋</span>
                   </button>
                 </div>
               )}
@@ -387,9 +395,9 @@ Message: "${userText}"`;
                   <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider block">Suggested Action</span>
                   <button
                     onClick={() => navigate('/enroll')}
-                    className="w-full py-2 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold rounded-xl text-xs shadow-md transition-all active:scale-95 text-center"
+                    className="w-full py-2.5 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold rounded-xl text-xs shadow-md transition-all active:scale-95 text-center flex items-center justify-center gap-1.5 cursor-pointer"
                   >
-                    Start Enrollment 📋
+                    <span>Start Enrollment Wizard 📋</span>
                   </button>
                 </div>
               )}
