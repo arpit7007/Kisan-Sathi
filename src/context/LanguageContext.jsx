@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { safeStr } from '../utils/safeStr';
 
 const LanguageContext = createContext();
 
@@ -457,7 +458,9 @@ export const LanguageProvider = ({ children }) => {
   };
 
   const t = (key) => {
-    return translations[language]?.[key] || translations['en']?.[key] || key;
+    if (typeof key !== 'string') return safeStr(key, language);
+    const translated = translations[language]?.[key] || translations['en']?.[key] || key;
+    return safeStr(translated, language);
   };
 
   return (

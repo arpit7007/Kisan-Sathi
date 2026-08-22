@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
+import { safeStr } from '../utils/safeStr';
 import { getFarmerProfile, saveClaim } from '../services/firebase';
 import { callGeminiVision, extractJSON } from '../services/gemini';
 import { speak } from '../services/voice';
@@ -407,11 +408,11 @@ Respond ONLY in JSON format: {"cropIdentified", "damageType", "severity", "confi
                       <div className="flex-1 space-y-1 text-xs">
                         <div>
                           <span className="text-gray-400">Crop Identified:</span>
-                          <strong className="text-textPrimary block text-sm font-bold">{visionResult.cropIdentified}</strong>
+                          <strong className="text-textPrimary block text-sm font-bold">{safeStr(visionResult.cropIdentified, language)}</strong>
                         </div>
                         <div>
                           <span className="text-gray-400">Damage/Pest Type:</span>
-                          <strong className="text-textPrimary block font-bold text-amber-700">{visionResult.damageType}</strong>
+                          <strong className="text-textPrimary block font-bold text-amber-700">{safeStr(visionResult.damageType, language)}</strong>
                         </div>
                       </div>
                     </div>
@@ -420,17 +421,17 @@ Respond ONLY in JSON format: {"cropIdentified", "damageType", "severity", "confi
                     <div className="grid grid-cols-2 gap-4 text-xs">
                       <div className="p-3 border border-orange-100 bg-orange-50/20 rounded-xl">
                         <span className="text-orange-800 block uppercase font-bold tracking-wider text-[10px]">Estimated Severity</span>
-                        <strong className="text-orange-950 font-bold text-sm uppercase">{visionResult.severity}</strong>
+                        <strong className="text-orange-950 font-bold text-sm uppercase">{safeStr(visionResult.severity, language)}</strong>
                       </div>
                       <div className="p-3 border border-green-100 bg-green-50/20 rounded-xl">
                         <span className="text-green-800 block uppercase font-bold tracking-wider text-[10px]">AI Confidence Level</span>
-                        <strong className="text-green-950 font-bold text-sm">{visionResult.confidence}</strong>
+                        <strong className="text-green-950 font-bold text-sm">{safeStr(visionResult.confidence, language)}</strong>
                       </div>
                     </div>
 
                     <div className="p-4 border border-blue-100 bg-blue-50/20 rounded-2xl text-xs space-y-1">
                       <span className="text-blue-800 font-bold uppercase tracking-wider text-[10px] block">Analysis Notes</span>
-                      <p className="text-textPrimary leading-relaxed">{visionResult.notes}</p>
+                      <p className="text-textPrimary leading-relaxed">{safeStr(visionResult.notes, language)}</p>
                     </div>
                   </div>
                 )

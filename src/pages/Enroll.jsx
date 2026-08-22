@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
+import { safeStr } from '../utils/safeStr';
 import { getFarmerProfile, saveApplication } from '../services/firebase';
 import { callGeminiVision } from '../services/gemini';
 import { speak, stopSpeaking } from '../services/voice';
@@ -386,15 +387,15 @@ Respond ONLY in JSON format:
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                 <div className="p-3 bg-gray-50 rounded-xl">
                   <span className="text-[10px] font-bold text-textSecondary uppercase block">Name</span>
-                  <span className="font-bold text-textPrimary mt-0.5 block">{aadhaarData.name}</span>
+                  <span className="font-bold text-textPrimary mt-0.5 block">{safeStr(aadhaarData.name, language)}</span>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-xl">
                   <span className="text-[10px] font-bold text-textSecondary uppercase block">Aadhaar</span>
-                  <span className="font-bold text-textPrimary mt-0.5 block">{aadhaarData.aadhaarNumber}</span>
+                  <span className="font-bold text-textPrimary mt-0.5 block">{safeStr(aadhaarData.aadhaarNumber, language)}</span>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-xl">
                   <span className="text-[10px] font-bold text-textSecondary uppercase block">{t('dobLabel')}</span>
-                  <span className="font-bold text-textPrimary mt-0.5 block">{aadhaarData.dateOfBirth}</span>
+                  <span className="font-bold text-textPrimary mt-0.5 block">{safeStr(aadhaarData.dateOfBirth, language)}</span>
                 </div>
               </div>
 
@@ -513,11 +514,11 @@ Respond ONLY in JSON format:
               <div className="grid grid-cols-1 sm:grid-cols-4 gap-3 text-sm">
                 <div className="p-3 bg-gray-50 rounded-xl">
                   <span className="text-[10px] font-bold text-textSecondary uppercase block">Farmer Name</span>
-                  <span className="font-bold text-textPrimary mt-0.5 block">{landData.farmerName}</span>
+                  <span className="font-bold text-textPrimary mt-0.5 block">{safeStr(landData.farmerName, language)}</span>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-xl">
                   <span className="text-[10px] font-bold text-textSecondary uppercase block">District</span>
-                  <span className="font-bold text-textPrimary mt-0.5 block">{landData.district}</span>
+                  <span className="font-bold text-textPrimary mt-0.5 block">{safeStr(landData.district, language)}</span>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-xl">
                   <span className="text-[10px] font-bold text-textSecondary uppercase block">{t('acresLabel')}</span>

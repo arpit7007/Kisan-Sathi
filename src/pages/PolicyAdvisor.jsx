@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
+import { safeStr } from '../utils/safeStr';
 import { getFarmerProfile, saveFarmerProfile } from '../services/firebase';
 import { callGemini, extractJSON } from '../services/gemini';
 import { Shield, Sparkles, AlertCircle, HelpCircle, Check, DollarSign, Clock, X } from 'lucide-react';
@@ -262,7 +263,7 @@ Respond in JSON:
                 <span className="text-xs font-bold text-textPrimary">Best Match: <strong className="text-amber-800">{POLICIES_DATA[recommendation.recommended]?.name.split(' ')[0]}</strong></span>
               </div>
               <p className="text-sm font-semibold text-textPrimary leading-relaxed">
-                "{recommendation.reason}"
+                "{safeStr(recommendation.reason, language)}"
               </p>
               <div className="grid grid-cols-2 gap-4 max-w-sm pt-2 text-xs">
                 <div className="bg-white p-2 rounded-xl border border-amber-100">

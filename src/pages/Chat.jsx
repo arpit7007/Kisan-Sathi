@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
+import { safeStr } from '../utils/safeStr';
 import { getFarmerProfile, saveFarmerProfile } from '../services/firebase';
 import { callGemini } from '../services/gemini';
 import { startListening, stopListening, speak, stopSpeaking, isVoiceSupported } from '../services/voice';
@@ -356,7 +357,7 @@ Message: "${userText}"`;
                   : 'bg-white text-textPrimary border border-green-50 rounded-bl-none'
               }`}
             >
-              {msg.text}
+              {safeStr(msg.text, language)}
               
               {/* Intent-based Contextual Actions */}
               {msg.sender === 'agent' && msg.intent === 'CLAIM_START' && (

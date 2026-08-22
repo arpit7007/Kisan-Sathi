@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
+import { safeStr } from '../utils/safeStr';
 import { getFarmerProfile, getClaims } from '../services/firebase';
 import { getWeatherForecast } from '../services/weather';
 import { callGemini, extractJSON } from '../services/gemini';
@@ -364,7 +365,7 @@ Respond ONLY in JSON format:
             <div className="md:col-span-8 space-y-4">
               <div className="p-4 bg-green-50/40 rounded-2xl border border-green-50">
                 <h3 className="text-xs font-bold text-textPrimary uppercase tracking-wider mb-1">AI Crop Summary</h3>
-                <p className="text-sm font-medium text-textPrimary italic">"{riskData.summary}"</p>
+                <p className="text-sm font-medium text-textPrimary italic">"{safeStr(riskData.summary, language)}"</p>
               </div>
 
               {/* Threat Pills */}
@@ -376,10 +377,10 @@ Respond ONLY in JSON format:
                       <AlertCircle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />
                       <div className="flex-1">
                         <div className="flex justify-between font-bold text-textPrimary">
-                          <span>{threatItem.threat}</span>
-                          <span className="text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded text-[10px]">{threatItem.probability} Prob</span>
+                          <span>{safeStr(threatItem.threat, language)}</span>
+                          <span className="text-orange-600 bg-orange-50 px-1.5 py-0.5 rounded text-[10px]">{safeStr(threatItem.probability, language)} Prob</span>
                         </div>
-                        <p className="text-gray-500 mt-0.5">{threatItem.description}</p>
+                        <p className="text-gray-500 mt-0.5">{safeStr(threatItem.description, language)}</p>
                       </div>
                     </div>
                   ))}
@@ -417,12 +418,12 @@ Respond ONLY in JSON format:
                     <span>{t('sowingAdvice')}</span>
                   </h3>
                   <p className="text-xs font-semibold text-textPrimary leading-relaxed">
-                    {riskData.sowingAdvice}
+                    {safeStr(riskData.sowingAdvice, language)}
                   </p>
                 </div>
                 <div className="mt-4 pt-3 border-t border-amber-100/50 flex justify-between items-center text-xs">
                   <span className="text-amber-800 font-bold">Week 1 Alert:</span>
-                  <span className="text-gray-500 font-medium">{riskData.weeklyAlerts?.[0]?.alert || 'No warning.'}</span>
+                  <span className="text-gray-500 font-medium">{safeStr(riskData.weeklyAlerts?.[0]?.alert, language) || 'No warning.'}</span>
                 </div>
               </div>
             </div>

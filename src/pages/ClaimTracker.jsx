@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
+import { safeStr } from '../utils/safeStr';
 import { getClaims, updateClaimStatus } from '../services/firebase';
 import { Clock, CheckCircle2, ChevronDown, ChevronUp, AlertCircle, MessageSquare, ShieldCheck, Tractor } from 'lucide-react';
 
@@ -137,7 +138,7 @@ export default function ClaimTracker() {
                       Claim ID: <span className="font-mono">{claim.claimId}</span>
                     </span>
                     <h3 className="text-base font-extrabold text-textPrimary">
-                      {claim.crop} ({claim.acresAffected} Acres) - {claim.damageType}
+                      {safeStr(claim.crop, language)} ({claim.acresAffected} Acres) - {safeStr(claim.damageType, language)}
                     </h3>
                     <p className="text-xs text-textSecondary">{t('dateFiled')}: {formattedDate}</p>
                   </div>

@@ -98,7 +98,6 @@ const localDb = {
 // 1. Auth Setup (Anonymous Sign-In for demo)
 export async function authenticateFarmer(onUserLoaded) {
   if (useLocalDb) {
-    // Generate a static mock UID or fetch existing
     let uid = localStorage.getItem('kisan_current_uid');
     if (!uid) {
       uid = `farmer_demo_${Math.floor(1000 + Math.random() * 9000)}`;
@@ -110,26 +109,45 @@ export async function authenticateFarmer(onUserLoaded) {
 
   try {
     onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        onUserLoaded(user);
-      } else {
-        const credential = await signInAnonymously(auth);
-        onUserLoaded(credential.user);
+      try {
+        if (user) {
+          onUserLoaded(user);
+        } else {
+          const credential = await signInAnonymously(auth);
+          onUserLoaded(credential.user);
+        }
+      } catch (authErr) {
+        console.warn("Firebase Anonymous Auth restricted or failed, using local auth:", authErr?.message || authErr);
+        useLocalDb = true;
+        let uid = localStorage.getItem('kisan_current_uid') || `farmer_demo_fallback`;
+        localStorage.setItem('kisan_current_uid', uid);
+        onUserLoaded({ uid, isAnonymous: true });
       }
     });
   } catch (error) {
-    console.error("Firebase Anonymous Auth failed, falling back to Local Auth:", error);
-    // Fall back to local
+    console.warn("Firebase Auth failed, falling back to Local Auth:", error?.message || error);
+    useLocalDb = true;
     let uid = localStorage.getItem('kisan_current_uid') || `farmer_demo_fallback`;
     localStorage.setItem('kisan_current_uid', uid);
     onUserLoaded({ uid, isAnonymous: true });
   }
 }
 
+// Helper to handle Firestore permission or network failures gracefully
+function handleFirestoreError(methodName, error) {
+  console.warn(`Firestore ${methodName} warning (${error?.code || 'error'}): ${error?.message || error}. Falling back to LocalStorage.`);
+  if (error?.code === 'permission-denied' || error?.message?.includes('permissions')) {
+    // Switch to local DB for the remainder of session to avoid constant logs
+    useLocalDb = true;
+  }
+}
+
 // 2. Profile Management
 export async function saveFarmerProfile(uid, profile) {
+  // Always update LocalStorage first as local backup
+  localDb.saveProfile(uid, profile);
+
   if (useLocalDb) {
-    localDb.saveProfile(uid, profile);
     return true;
   }
 
@@ -140,8 +158,7 @@ export async function saveFarmerProfile(uid, profile) {
     }, { merge: true });
     return true;
   } catch (error) {
-    console.error("Firestore saveProfile failed, saving locally:", error);
-    localDb.saveProfile(uid, profile);
+    handleFirestoreError("saveProfile", error);
     return true;
   }
 }
@@ -156,22 +173,23 @@ export async function getFarmerProfile(uid) {
     if (docSnap.exists()) {
       return docSnap.data();
     }
-    // Try local
     return localDb.getProfile(uid);
   } catch (error) {
-    console.error("Firestore getProfile failed, fetching locally:", error);
+    handleFirestoreError("getProfile", error);
     return localDb.getProfile(uid);
   }
 }
 
 // 3. Claims Management
 export async function saveClaim(uid, claimData) {
+  const localClaimId = localDb.saveClaim(uid, claimData);
+
   if (useLocalDb) {
-    return localDb.saveClaim(uid, claimData);
+    return localClaimId;
   }
 
   try {
-    const claimId = `KS-${Math.floor(100000 + Math.random() * 900000)}`;
+    const claimId = localClaimId;
     const newClaim = {
       ...claimData,
       claimId,
@@ -180,16 +198,10 @@ export async function saveClaim(uid, claimData) {
       status: 'Filed'
     };
     await setDoc(doc(db, "claims", claimId), newClaim);
-    
-    // Also save in local storage for double-caching
-    const claims = localDb.getClaims(uid);
-    claims.push(newClaim);
-    localStorage.setItem(`kisan_claims_${uid}`, JSON.stringify(claims));
-
     return claimId;
   } catch (error) {
-    console.error("Firestore saveClaim failed, saving locally:", error);
-    return localDb.saveClaim(uid, claimData);
+    handleFirestoreError("saveClaim", error);
+    return localClaimId;
   }
 }
 
@@ -210,17 +222,15 @@ export async function getClaims(uid) {
       return localDb.getClaims(uid);
     }
     
-    // Cache locally
     localStorage.setItem(`kisan_claims_${uid}`, JSON.stringify(claims));
     return claims;
   } catch (error) {
-    console.error("Firestore getClaims failed, loading from cache:", error);
+    handleFirestoreError("getClaims", error);
     return localDb.getClaims(uid);
   }
 }
 
 export async function updateClaimStatus(uid, claimId, status) {
-  // Always update locally
   localDb.updateClaimStatus(uid, claimId, status);
   
   if (useLocalDb) return;
@@ -228,17 +238,19 @@ export async function updateClaimStatus(uid, claimId, status) {
   try {
     await updateDoc(doc(db, "claims", claimId), { status });
   } catch (error) {
-    console.error("Firestore updateClaimStatus failed, saved locally only:", error);
+    handleFirestoreError("updateClaimStatus", error);
   }
 }
 
 export async function saveApplication(uid, appData) {
+  const localAppId = localDb.saveApplication(uid, appData);
+
   if (useLocalDb) {
-    return localDb.saveApplication(uid, appData);
+    return localAppId;
   }
 
   try {
-    const appId = appData.appId || `APP-${Math.floor(100000 + Math.random() * 900000)}`;
+    const appId = localAppId;
     const newApp = {
       ...appData,
       appId,
@@ -246,14 +258,10 @@ export async function saveApplication(uid, appData) {
       dateCreated: new Date().toISOString()
     };
     await setDoc(doc(db, "applications", uid, "user_applications", appId), newApp);
-    
-    // Also save in local storage for double-caching
-    localDb.saveApplication(uid, newApp);
-
     return appId;
   } catch (error) {
-    console.error("Firestore saveApplication failed, saving locally:", error);
-    return localDb.saveApplication(uid, appData);
+    handleFirestoreError("saveApplication", error);
+    return localAppId;
   }
 }
 
@@ -274,11 +282,11 @@ export async function getApplications(uid) {
       return localDb.getApplications(uid);
     }
     
-    // Cache locally
     localStorage.setItem(`kisan_applications_${uid}`, JSON.stringify(apps));
     return apps;
   } catch (error) {
-    console.error("Firestore getApplications failed, loading from cache:", error);
+    handleFirestoreError("getApplications", error);
     return localDb.getApplications(uid);
   }
 }
+
