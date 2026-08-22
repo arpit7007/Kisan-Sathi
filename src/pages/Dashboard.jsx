@@ -132,10 +132,13 @@ Respond ONLY in JSON format:
       const parsed = JSON.parse(cleaned);
       if (!parsed || typeof parsed !== 'object') throw new Error("Parsed JSON is not an object");
       setRiskData(parsed);
+      localStorage.setItem('kisan_current_risk', JSON.stringify(parsed));
     } catch (e) {
       console.error("Failed to parse Gemini risk assessment, loading fallback.", e);
       // Hardcoded fallback
-      setRiskData(getFallbackRisk(farmerProf.primaryCrop, farmerProf.district));
+      const fallback = getFallbackRisk(farmerProf.primaryCrop, farmerProf.district);
+      setRiskData(fallback);
+      localStorage.setItem('kisan_current_risk', JSON.stringify(fallback));
     } finally {
       setRiskLoading(false);
     }

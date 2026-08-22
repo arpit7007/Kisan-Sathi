@@ -168,8 +168,29 @@ export default function Chat() {
     const secondaryCrop = profile?.secondaryCrop || 'None';
     const acres = profile?.landSize || '0';
     const insuranceStatus = profile?.hasInsurance || 'Not Sure';
-    const riskScore = '82';
-    const topThreats = 'Whitefly Pest Outbreak';
+
+    // Dynamic risk extraction from dashboard local storage
+    const savedRiskRaw = localStorage.getItem('kisan_current_risk');
+    let riskScore = profile?.primaryCrop === 'Cotton' ? '82' : '45';
+    let topThreats = profile?.primaryCrop === 'Cotton' ? 'Whitefly Pest Outbreak' : 'Yellow Rust / Groundwater stress';
+    let overallRiskLevel = profile?.primaryCrop === 'Cotton' ? 'High' : 'Medium';
+
+    if (savedRiskRaw) {
+      try {
+        const savedRisk = JSON.parse(savedRiskRaw);
+        if (savedRisk.riskScore !== undefined) {
+          riskScore = String(savedRisk.riskScore);
+        }
+        if (savedRisk.overallRisk) {
+          overallRiskLevel = safeStr(savedRisk.overallRisk, language);
+        }
+        if (savedRisk.topThreats && savedRisk.topThreats.length > 0) {
+          topThreats = savedRisk.topThreats.map(t => safeStr(t.threat || t.description || t, language)).join(', ');
+        }
+      } catch (e) {
+        console.error("Error reading saved risk assessment:", e);
+      }
+    }
 
     const systemPrompt = `You are KisanSaathi, a helpful farming assistant for Punjab farmers. 
 You speak in ${language === 'pa' ? 'Punjabi (Gurmukhi script)' : language === 'hi' ? 'Hindi' : 'English'} based on user preference.
@@ -180,7 +201,7 @@ Farmer profile:
 - Crop: ${primaryCrop}, ${secondaryCrop}
 - Land: ${acres} acres
 - Insurance status: ${insuranceStatus}
-- Current risk score: ${riskScore}/100
+- Current calculated risk score: ${riskScore}/100 (${overallRiskLevel} Risk)
 - Top threats: ${topThreats}
 
 You can help with:
@@ -194,6 +215,7 @@ Rules:
 - Always respond in the farmer's language (Punjabi, Hindi, or English)
 - Use simple words, no jargon
 - Be warm, like a helpful neighbor
+- Always use the farmer's EXACT current calculated risk score (${riskScore}/100) when asked about risk!
 - Keep responses under 3 sentences for voice
 - Do NOT say you will automatically redirect. Tell them to tap the action button below to proceed.`;
 
@@ -250,10 +272,10 @@ Message: "${userText}"`;
           responseText = "Great! Tap the Start Enrollment button below and I will guide you through the quick enrollment wizard.";
           matchedIntent = 'ENROLL_REQUEST';
         } else if (lowercaseText.includes("insurance") || lowercaseText.includes("policy")) {
-          responseText = "For Cotton in Mansa, I recommend the RWBCIS weather policy due to its fast 45-day payouts for temperature/pest hazards.";
+          responseText = `For ${primaryCrop} in ${district}, I recommend crop insurance to protect against weather anomalies.`;
           matchedIntent = 'POLICY_QUESTION';
-        } else if (lowercaseText.includes("weather") || lowercaseText.includes("risk")) {
-          responseText = "High risk detected for Cotton in Mansa due to whitefly infestation. Sowing is otherwise optimal.";
+        } else if (lowercaseText.includes("weather") || lowercaseText.includes("risk") || lowercaseText.includes("current risk")) {
+          responseText = `Sat Sri Akal, ${farmerName}! Your current crop risk score is ${riskScore}/100 (${overallRiskLevel} Risk), primarily due to: ${topThreats}.`;
           matchedIntent = 'RISK_QUESTION';
         }
       } else if (language === 'hi') {
@@ -267,6 +289,9 @@ Message: "${userText}"`;
         } else if (lowercaseText.includes("policy")) {
           responseText = "आपके लिए पीएमएफबीवाई (PMFBY) या आरडब्ल्यूबीसीआईएस सबसे अच्छा विकल्प है। क्या मैं योग्यता की जांच करूं?";
           matchedIntent = 'POLICY_QUESTION';
+        } else if (lowercaseText.includes("weather") || lowercaseText.includes("risk") || lowercaseText.includes("जोखिम")) {
+          responseText = `नमस्ते, ${farmerName}! आपकी फसल का वर्तमान जोखिम स्कोर ${riskScore}/100 है। मुख्य खतरे: ${topThreats}।`;
+          matchedIntent = 'RISK_QUESTION';
         }
       } else { // pa
         if (lowercaseText.includes("ਨੁਕਸਾਨ") || lowercaseText.includes("ਦਾਅਵਾ") || lowercaseText.includes("ਦਾਗ") || lowercaseText.includes("nuksan") || lowercaseText === "yes" || lowercaseText === "ਹਾਂ" || lowercaseText === "ਜੀ" || lowercaseText.includes("ਫਾਈਲ")) {
@@ -278,6 +303,9 @@ Message: "${userText}"`;
         } else if (lowercaseText.includes("policy")) {
           responseText = "ਤੁਹਾਡੇ ਲਈ ਪ੍ਰਧਾਨ ਮੰਤਰੀ ਫਸਲ ਬੀਮਾ ਯੋਜਨਾ (PMFBY) ਅਤੇ RWBCIS ਸਭ ਤੋਂ ਵਧੀਆ ਵਿਕਲਪ ਹਨ। ਕੀ ਤੁਸੀਂ ਚਾਹੁੰਦੇ ਹੋ ਕਿ ਮੈਂ ਤੁਹਾਡੀ ਯੋਗਤਾ ਦੀ ਜਾਂਚ ਕਰਾਂ?";
           matchedIntent = 'POLICY_QUESTION';
+        } else if (lowercaseText.includes("weather") || lowercaseText.includes("risk") || lowercaseText.includes("ਜੋਖਮ") || lowercaseText.includes("ਖਤਰਾ")) {
+          responseText = `ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ, ${farmerName}! ਤੁਹਾਡੀ ਫਸਲ ਦਾ ਜੋਖਮ ਸਕੋਰ ${riskScore}/100 ਹੈ। ਮੁੱਖ ਖ਼ਤਰੇ: ${topThreats}।`;
+          matchedIntent = 'RISK_QUESTION';
         }
       }
       
