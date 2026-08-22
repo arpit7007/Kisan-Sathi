@@ -17,6 +17,14 @@ const translations = {
     complete: "Complete Setup",
     loading: "Loading...",
     
+    // Navbar Concise Labels
+    navDashboard: "Dashboard",
+    navChat: "Voice AI",
+    navEnroll: "Enroll",
+    navPolicy: "Policies",
+    navClaim: "File Claim",
+    navStatus: "Tracker",
+    
     // Onboarding
     onboardTitle: "Farmer Onboarding",
     step: "Step",
@@ -164,6 +172,14 @@ const translations = {
     complete: "ਸੈੱਟਅੱਪ ਪੂਰਾ ਕਰੋ",
     loading: "ਲੋਡ ਹੋ ਰਿਹਾ ਹੈ...",
 
+    // Navbar Concise Labels
+    navDashboard: "ਡੈਸ਼ਬੋਰਡ",
+    navChat: "ਆਵਾਜ਼ AI",
+    navEnroll: "ਰਜਿਸਟ੍ਰੇਸ਼ਨ",
+    navPolicy: "ਪਾਲਿਸੀਆਂ",
+    navClaim: "ਦਾਅਵਾ ਦਰਜ ਕਰੋ",
+    navStatus: "ਟਰੈਕਰ",
+
     // Onboarding
     onboardTitle: "ਕਿਸਾਨ ਪ੍ਰੋਫਾਈਲ ਸੈੱਟਅੱਪ",
     step: "ਕਦਮ",
@@ -310,6 +326,14 @@ const translations = {
     submit: "जमा करें",
     complete: "सेटअप पूरा करें",
     loading: "लोड हो रहा है...",
+
+    // Navbar Concise Labels
+    navDashboard: "डैशबोर्ड",
+    navChat: "आवाज AI",
+    navEnroll: "नामांकन",
+    navPolicy: "पॉलिसियां",
+    navClaim: "दावा दर्ज करें",
+    navStatus: "ट्रैकर",
 
     // Onboarding
     onboardTitle: "किसान प्रोफाइल सेटअप",
