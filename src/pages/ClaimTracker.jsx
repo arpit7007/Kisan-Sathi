@@ -369,6 +369,15 @@ export default function ClaimTracker() {
     setActiveModalStep(stepNum);
   };
 
+  // Filter Claims
+  const filteredClaims = claims.filter(c => {
+    if (activeFilter === 'ALL') return true;
+    if (activeFilter === 'PENDING_INTIMATION') return c.status === 'OFFICIAL_INTIMATION_PENDING' || !c.officialClaimId;
+    if (activeFilter === 'ASSESSMENT') return c.status === 'ASSESSMENT_PENDING' || c.status === 'ASSESSMENT_IN_PROGRESS' || c.status === 'OFFICIAL_INTIMATION_RECORDED';
+    if (activeFilter === 'APPROVED_PAID') return c.status === 'CLAIM_APPROVED' || c.status === 'PAYMENT_COMPLETED' || c.status === 'PAYMENT_PENDING';
+    return true;
+  });
+
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-6 pb-24 md:pb-8 mt-2">
       {/* Page Header */}
