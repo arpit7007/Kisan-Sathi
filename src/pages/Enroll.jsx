@@ -8,7 +8,8 @@ import { speak, stopSpeaking } from '../services/voice';
 import { generatePolicyApplicationPDF } from '../services/pdf';
 import { 
   Camera, Check, AlertCircle, ArrowLeft, ArrowRight, Shield, 
-  FileText, Download, Share2, AlertTriangle, RefreshCw, Sparkles 
+  FileText, Download, Share2, AlertTriangle, RefreshCw, Sparkles,
+  Building2, Landmark, Users, Globe, CreditCard, ChevronDown, ChevronUp, ExternalLink, HelpCircle, FileCheck, UserCheck, MapPin
 } from 'lucide-react';
 
 export default function Enroll() {
@@ -30,6 +31,7 @@ export default function Enroll() {
   const [pdfRefId, setPdfRefId] = useState('');
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const [isPdfComplete, setIsPdfComplete] = useState(false);
+  const [activeMethodTab, setActiveMethodTab] = useState('csc');
 
   const fileInputRef1 = useRef(null);
   const fileInputRef2 = useRef(null);
@@ -792,17 +794,327 @@ Respond ONLY in JSON format:
                 </button>
               </div>
 
-              {/* Submission Instructions Alert */}
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex gap-3">
-                <AlertCircle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div className="text-xs text-amber-800 space-y-1.5">
-                  <span className="font-bold block">Next steps for insurance policy approval:</span>
-                  <ul className="list-disc pl-4 space-y-1 opacity-90">
-                    <li>Print the downloaded application file.</li>
-                    <li>Sign in the Signature block (page 1).</li>
-                    <li>Bring the physical copies of your Aadhaar card and Land Jamabandi sheet, along with this form, to your nearest Common Service Centre (CSC) or bank branch representative for premium payment collection.</li>
-                  </ul>
+              {/* --- COMPREHENSIVE PMFBY ENROLLMENT & DOCUMENT SUBMISSION GUIDE --- */}
+              <div className="space-y-6 pt-4 border-t border-green-100">
+                
+                {/* 1. What To Do Next With This Document */}
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50/40 border border-green-200/80 rounded-2xl p-5 space-y-3 shadow-xs">
+                  <div className="flex items-center gap-2 text-primary-green">
+                    <FileCheck className="w-5 h-5 flex-shrink-0" />
+                    <h4 className="text-sm font-extrabold text-textPrimary">
+                      {t('nextStepsTitle') || "What To Do Next With Your Document"}
+                    </h4>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-4 gap-2.5 pt-1 text-xs">
+                    <div className="p-3 bg-white/90 rounded-xl border border-green-100/60 flex flex-col justify-between">
+                      <div>
+                        <span className="w-5 h-5 rounded-full bg-green-600 text-white font-black text-[10px] flex items-center justify-center mb-1.5">1</span>
+                        <span className="font-bold text-textPrimary block">Download & Print</span>
+                        <p className="text-[11px] text-textSecondary mt-0.5 leading-tight">Print 2 copies of your KisanSaathi generated PDF application.</p>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-white/90 rounded-xl border border-green-100/60 flex flex-col justify-between">
+                      <div>
+                        <span className="w-5 h-5 rounded-full bg-green-600 text-white font-black text-[10px] flex items-center justify-center mb-1.5">2</span>
+                        <span className="font-bold text-textPrimary block">Sign / Thumb Mark</span>
+                        <p className="text-[11px] text-textSecondary mt-0.5 leading-tight">Put your signature or thumb impression in the Page 1 box.</p>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-white/90 rounded-xl border border-green-100/60 flex flex-col justify-between">
+                      <div>
+                        <span className="w-5 h-5 rounded-full bg-green-600 text-white font-black text-[10px] flex items-center justify-center mb-1.5">3</span>
+                        <span className="font-bold text-textPrimary block">Attach Physical Proofs</span>
+                        <p className="text-[11px] text-textSecondary mt-0.5 leading-tight">Attach Aadhaar, Land Fard, Bank Passbook copy & Sowing certificate.</p>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-white/90 rounded-xl border border-green-100/60 flex flex-col justify-between">
+                      <div>
+                        <span className="w-5 h-5 rounded-full bg-green-600 text-white font-black text-[10px] flex items-center justify-center mb-1.5">4</span>
+                        <span className="font-bold text-textPrimary block">Submit at Channel</span>
+                        <p className="text-[11px] text-textSecondary mt-0.5 leading-tight">Take to CSC, Bank Branch, PACS or submit online on PMFBY portal.</p>
+                      </div>
+                    </div>
+                  </div>
                 </div>
+
+                {/* 2. Loanee vs Non-Loanee Farmer Breakdown */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="p-4 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-1.5">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-900">
+                      <Landmark className="w-4 h-4 text-amber-700" />
+                      <span>1. Loanee Farmer (KCC Loan Holders)</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      Farmers holding an active Kisan Credit Card (KCC) or crop loan. Your lending bank branch automatically processes your crop insurance using existing loan records. (Opt-out available at bank 7 days prior to deadline).
+                    </p>
+                  </div>
+                  <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200/80 space-y-1.5">
+                    <div className="flex items-center gap-1.5 font-bold text-emerald-900">
+                      <UserCheck className="w-4 h-4 text-emerald-700" />
+                      <span>2. Non-Loanee Farmer (Without Crop Loan)</span>
+                    </div>
+                    <p className="text-[11px] text-emerald-800 leading-relaxed">
+                      Farmers without a crop loan. You must submit your proposal form + physical document attachments through any of the 5 channels below (CSC, Bank Branch, PACS, Agent, or Self Online Portal).
+                    </p>
+                  </div>
+                </div>
+
+                {/* 3. Required Physical Attachments Checklist */}
+                <div className="bg-white border border-gray-200 rounded-2xl p-4 space-y-2">
+                  <span className="text-xs font-bold text-textPrimary flex items-center gap-1.5">
+                    <FileText className="w-4 h-4 text-primary-green" />
+                    <span>{t('requiredDocsTitle') || "Required Physical Attachments"}</span>
+                  </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-[11px] text-textSecondary">
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-xl">
+                      <Check className="w-4 h-4 text-primary-green shrink-0" />
+                      <span><strong>Aadhaar Card:</strong> Copy / Original for CSC Aadhaar auth</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-xl">
+                      <Check className="w-4 h-4 text-primary-green shrink-0" />
+                      <span><strong>Land Record:</strong> Jamabandi / Fard / Khasra document</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-xl">
+                      <Check className="w-4 h-4 text-primary-green shrink-0" />
+                      <span><strong>Bank Passbook:</strong> Account No. & IFSC code page</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-xl">
+                      <Check className="w-4 h-4 text-primary-green shrink-0" />
+                      <span><strong>Sowing Proof:</strong> Self-declaration / Patwari certificate</span>
+                    </div>
+                    <div className="flex items-center gap-2 p-2 bg-gray-50 rounded-xl sm:col-span-2">
+                      <Check className="w-4 h-4 text-primary-green shrink-0" />
+                      <span><strong>Premium Share:</strong> Subsidized farmer share (1.5% - 2.0% food crops, 5% commercial)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. 6 Official PMFBY Enrollment Routes (Interactive Selector) */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-extrabold text-textPrimary flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-primary-green" />
+                      <span>{t('enrollRoutesTitle') || "6 Official Ways to Submit Your Enrollment"}</span>
+                    </h4>
+                    <span className="text-[10px] text-textSecondary font-semibold">Click a route to view step-by-step instructions</span>
+                  </div>
+
+                  {/* Route Tab Buttons Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {[
+                      { id: 'csc', label: '1. CSC Center', tag: 'Most Popular', icon: Users, color: 'border-green-500 bg-green-50/50' },
+                      { id: 'bank', label: '2. Bank Branch', tag: 'Direct Bank', icon: Landmark, color: 'border-blue-500 bg-blue-50/50' },
+                      { id: 'pacs', label: '3. PACS Society', tag: 'Village PACS', icon: Building2, color: 'border-amber-500 bg-amber-50/50' },
+                      { id: 'agent', label: '4. Insurance Agent', tag: 'Doorstep', icon: HelpCircle, color: 'border-purple-500 bg-purple-50/50' },
+                      { id: 'online', label: '5. Online Portal', tag: 'pmfby.gov.in', icon: Globe, color: 'border-teal-500 bg-teal-50/50' },
+                      { id: 'kcc', label: '6. KCC / Loanee Bank', tag: 'Auto Loan', icon: CreditCard, color: 'border-indigo-500 bg-indigo-50/50' }
+                    ].map(tab => (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        onClick={() => setActiveMethodTab(tab.id)}
+                        className={`p-3 rounded-xl border-2 text-left transition-all flex flex-col justify-between cursor-pointer ${
+                          activeMethodTab === tab.id
+                            ? 'border-primary-green bg-green-50/80 shadow-xs'
+                            : 'border-gray-200 hover:border-green-200 bg-white'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between w-full">
+                          <tab.icon className={`w-4 h-4 ${activeMethodTab === tab.id ? 'text-primary-green' : 'text-gray-500'}`} />
+                          <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">{tab.tag}</span>
+                        </div>
+                        <span className="text-xs font-bold text-textPrimary mt-2 block">{tab.label}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Tab Detail Card */}
+                  <div className="p-5 rounded-2xl border border-green-200 bg-white space-y-3 shadow-xs">
+                    {activeMethodTab === 'csc' && (
+                      <div className="space-y-2 text-xs text-textPrimary">
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                          <span className="font-bold text-sm text-primary-green flex items-center gap-1.5">
+                            <Users className="w-4 h-4" /> METHOD 1 — CSC (Common Service Centre)
+                          </span>
+                          <span className="text-[10px] bg-green-100 text-green-800 font-extrabold px-2 py-0.5 rounded-full">Hybrid Digital + Physical</span>
+                        </div>
+                        <p className="text-textSecondary leading-relaxed">
+                          Farmers bring physical documents to a nearby Common Service Centre. The CSC operator performs digital upload and Aadhaar biometric verification.
+                        </p>
+                        <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-textPrimary opacity-90">
+                          <li><strong>Visit CSC:</strong> Take printed Proposal Form, Aadhaar, Land Jamabandi, & Bank Passbook copy to nearest CSC VLE.</li>
+                          <li><strong>Aadhaar Auth:</strong> Authenticate yourself via Aadhaar biometric fingerprint / OTP at the CSC counter.</li>
+                          <li><strong>Data & Document Upload:</strong> CSC operator fills the online application on `pmfby.gov.in` NCIP portal and uploads document scans.</li>
+                          <li><strong>Premium & Receipt:</strong> Pay the subsidized farmer premium to CSC operator; receive instant PMFBY digital policy acknowledgement receipt.</li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {activeMethodTab === 'bank' && (
+                      <div className="space-y-2 text-xs text-textPrimary">
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                          <span className="font-bold text-sm text-blue-700 flex items-center gap-1.5">
+                            <Landmark className="w-4 h-4" /> METHOD 2 — Commercial or Cooperative Bank Branch
+                          </span>
+                          <span className="text-[10px] bg-blue-100 text-blue-800 font-extrabold px-2 py-0.5 rounded-full">Bank Assisted</span>
+                        </div>
+                        <p className="text-textSecondary leading-relaxed">
+                          Classic assisted route for non-loanee and loanee farmers via Commercial Banks, Regional Rural Banks (RRB), or Cooperative Banks (DCCB).
+                        </p>
+                        <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-textPrimary opacity-90">
+                          <li><strong>Visit Bank Branch:</strong> Present proposal form, land details, Aadhaar, and bank account passbook.</li>
+                          <li><strong>Bank Verification:</strong> Bank staff verifies farmer identity, land records, insurable crop area, and premium calculation.</li>
+                          <li><strong>NCIP Data Entry:</strong> Bank staff uploads the proposal data directly onto the National Crop Insurance Portal (NCIP).</li>
+                          <li><strong>Premium & Acknowledgment:</strong> Premium is debited/paid; bank issues policy acknowledgment folio.</li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {activeMethodTab === 'pacs' && (
+                      <div className="space-y-2 text-xs text-textPrimary">
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                          <span className="font-bold text-sm text-amber-700 flex items-center gap-1.5">
+                            <Building2 className="w-4 h-4" /> METHOD 3 — PACS (Primary Agricultural Credit Society)
+                          </span>
+                          <span className="text-[10px] bg-amber-100 text-amber-800 font-extrabold px-2 py-0.5 rounded-full">Village Cooperative</span>
+                        </div>
+                        <p className="text-textSecondary leading-relaxed">
+                          Crucial for rural farmers far from bank branches. PACS officials consolidate village farmer applications.
+                        </p>
+                        <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-textPrimary opacity-90">
+                          <li><strong>Submit at PACS:</strong> Provide Proposal Form, Land Jamabandi, Aadhaar, and premium at your village PACS office.</li>
+                          <li><strong>PACS Verification:</strong> PACS officials assist with completing forms and verifying land/crop details.</li>
+                          <li><strong>Nodal Bank Submission:</strong> PACS consolidates applications and forwards data to their designated Nodal Bank branch.</li>
+                          <li><strong>NCIP Entry & Policy:</strong> Nodal bank uploads data to NCIP portal; premium remitted to insurer; policy issued.</li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {activeMethodTab === 'agent' && (
+                      <div className="space-y-2 text-xs text-textPrimary">
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                          <span className="font-bold text-sm text-purple-700 flex items-center gap-1.5">
+                            <HelpCircle className="w-4 h-4" /> METHOD 4 — Authorized Insurance Agent / Intermediary
+                          </span>
+                          <span className="text-[10px] bg-purple-100 text-purple-800 font-extrabold px-2 py-0.5 rounded-full">Doorstep Representative</span>
+                        </div>
+                        <p className="text-textSecondary leading-relaxed">
+                          Authorized Business Correspondents (BCs) or insurance intermediaries who collect proposal forms directly from farmers.
+                        </p>
+                        <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-textPrimary opacity-90">
+                          <li><strong>Agent Visit:</strong> Authorized representative approaches farmer or farmer contacts intermediary.</li>
+                          <li><strong>Document Verification:</strong> Agent verifies Aadhaar, land details, and crop sowing details.</li>
+                          <li><strong>Premium Collection:</strong> Agent collects proposal form and subsidized farmer premium.</li>
+                          <li><strong>System Submission:</strong> Agent transmits application through the prescribed insurance company portal.</li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {activeMethodTab === 'online' && (
+                      <div className="space-y-2 text-xs text-textPrimary">
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                          <span className="font-bold text-sm text-teal-700 flex items-center gap-1.5">
+                            <Globe className="w-4 h-4" /> METHOD 5 — Direct Online Self-Enrollment (`pmfby.gov.in`)
+                          </span>
+                          <span className="text-[10px] bg-teal-100 text-teal-800 font-extrabold px-2 py-0.5 rounded-full">Direct Digital Self-Service</span>
+                        </div>
+                        <p className="text-textSecondary leading-relaxed">
+                          Farmers apply directly via computer or mobile on official Government Portal (`pmfby.gov.in` Farmer Corner).
+                        </p>
+                        <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-textPrimary opacity-90">
+                          <li><strong>Open Portal:</strong> Visit `pmfby.gov.in` → Click "Farmer Corner" → Register/Login with mobile & Aadhaar.</li>
+                          <li><strong>Select Details:</strong> Choose State, District, Sub-district, Village, Crop, and Land Survey / Khasra number.</li>
+                          <li><strong>Upload Documents:</strong> Upload digital photos/PDFs of Aadhaar, Bank Passbook, Land record, & Sowing proof.</li>
+                          <li><strong>Pay Premium:</strong> Pay subsidized premium via UPI, NetBanking, or Debit Card; receive instant NCIP receipt.</li>
+                        </ol>
+                      </div>
+                    )}
+
+                    {activeMethodTab === 'kcc' && (
+                      <div className="space-y-2 text-xs text-textPrimary">
+                        <div className="flex items-center justify-between border-b border-gray-100 pb-2">
+                          <span className="font-bold text-sm text-indigo-700 flex items-center gap-1.5">
+                            <CreditCard className="w-4 h-4" /> METHOD 6 — KCC / Loanee Farmer Bank Processing
+                          </span>
+                          <span className="text-[10px] bg-indigo-100 text-indigo-800 font-extrabold px-2 py-0.5 rounded-full">Automatic Bank Route</span>
+                        </div>
+                        <p className="text-textSecondary leading-relaxed">
+                          Automatic coverage route for farmers holding sanctioned crop loans under Kisan Credit Card (KCC).
+                        </p>
+                        <ol className="list-decimal pl-4 space-y-1.5 text-[11px] text-textPrimary opacity-90">
+                          <li><strong>Loan Account Linkage:</strong> Lending bank branch already holds farmer identity, land size, & KCC loan details.</li>
+                          <li><strong>Automated NCIP Upload:</strong> Bank uploads crop loan data directly to NCIP portal before cut-off date.</li>
+                          <li><strong>Premium Debit:</strong> Farmer's subsidized premium share is debited directly from KCC loan account.</li>
+                          <li><strong>Policy Issued:</strong> Insurance policy folio issued automatically; opt-out available at bank if desired.</li>
+                        </ol>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* 5. PMFBY Channel Comparison Matrix */}
+                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 space-y-3">
+                  <span className="text-xs font-bold text-textPrimary block">Quick Channel Comparison Matrix</span>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[11px] text-left text-textPrimary border-collapse">
+                      <thead>
+                        <tr className="border-b border-gray-200 text-textSecondary uppercase font-extrabold text-[9px] bg-gray-100/70">
+                          <th className="py-2 px-2">Channel</th>
+                          <th className="py-2 px-2">Physical Docs?</th>
+                          <th className="py-2 px-2">Who Enters Data?</th>
+                          <th className="py-2 px-2">Payment Method</th>
+                          <th className="py-2 px-2">Portal Operator</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200/60">
+                        <tr>
+                          <td className="py-2 px-2 font-bold text-primary-green">CSC Center</td>
+                          <td className="py-2 px-2">Yes (Scanned)</td>
+                          <td className="py-2 px-2">CSC Operator</td>
+                          <td className="py-2 px-2">Cash / Digital at CSC</td>
+                          <td className="py-2 px-2">CSC VLE</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-2 font-bold text-blue-700">Bank Branch</td>
+                          <td className="py-2 px-2">Yes</td>
+                          <td className="py-2 px-2">Bank Staff</td>
+                          <td className="py-2 px-2">Bank Account / Cash</td>
+                          <td className="py-2 px-2">Bank Branch</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-2 font-bold text-amber-700">PACS Society</td>
+                          <td className="py-2 px-2">Yes</td>
+                          <td className="py-2 px-2">PACS Staff / Nodal Bank</td>
+                          <td className="py-2 px-2">PACS Account / Cash</td>
+                          <td className="py-2 px-2">Nodal Bank</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-2 font-bold text-purple-700">Insurance Agent</td>
+                          <td className="py-2 px-2">Yes</td>
+                          <td className="py-2 px-2">Agent / Intermediary</td>
+                          <td className="py-2 px-2">Cash / Cheque / Online</td>
+                          <td className="py-2 px-2">Insurance Co.</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-2 font-bold text-teal-700">Online Portal</td>
+                          <td className="py-2 px-2">Photos / Uploads</td>
+                          <td className="py-2 px-2">Farmer Self</td>
+                          <td className="py-2 px-2">UPI / NetBanking</td>
+                          <td className="py-2 px-2">Farmer (`pmfby.gov.in`)</td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-2 font-bold text-indigo-700">Loanee / KCC Bank</td>
+                          <td className="py-2 px-2">On file</td>
+                          <td className="py-2 px-2">Bank Staff</td>
+                          <td className="py-2 px-2">Debited from KCC account</td>
+                          <td className="py-2 px-2">Lending Bank</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
               </div>
             </div>
           )}
