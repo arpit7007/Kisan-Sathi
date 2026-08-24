@@ -242,6 +242,44 @@ export async function updateClaimStatus(uid, claimId, status) {
   }
 }
 
+export async function addClaimStatusHistory(uid, claimId, historyEvent) {
+  const existingClaims = localDb.getClaims(uid);
+  const updated = existingClaims.map(c => {
+    if ((c.claimId || c.internalReportId) === claimId) {
+      const history = c.statusHistory || [];
+      return {
+        ...c,
+        status: historyEvent.status || c.status,
+        statusSource: historyEvent.source || c.statusSource || 'FARMER_REPORTED',
+        officialClaimId: historyEvent.officialReference || c.officialClaimId,
+        updatedAt: new Date().toISOString(),
+        statusHistory: [...history, { ...historyEvent, timestamp: new Date().toISOString() }]
+      };
+    }
+    return c;
+  });
+  localStorage.setItem(`kisan_claims_${uid}`, JSON.stringify(updated));
+
+  const activeReportStr = localStorage.getItem('kisan_active_loss_report');
+  if (activeReportStr) {
+    try {
+      const active = JSON.parse(activeReportStr);
+      if ((active.claimId || active.internalReportId) === claimId) {
+        const history = active.statusHistory || [];
+        const updatedActive = {
+          ...active,
+          status: historyEvent.status || active.status,
+          statusSource: historyEvent.source || active.statusSource || 'FARMER_REPORTED',
+          officialClaimId: historyEvent.officialReference || active.officialClaimId,
+          updatedAt: new Date().toISOString(),
+          statusHistory: [...history, { ...historyEvent, timestamp: new Date().toISOString() }]
+        };
+        localStorage.setItem('kisan_active_loss_report', JSON.stringify(updatedActive));
+      }
+    } catch (e) {}
+  }
+}
+
 export async function saveApplication(uid, appData) {
   const localAppId = localDb.saveApplication(uid, appData);
 

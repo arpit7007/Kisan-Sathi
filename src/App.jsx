@@ -32,6 +32,8 @@ export default function App() {
               <Route path="/policy" element={<PolicyAdvisor />} />
               <Route path="/claim" element={<ClaimFiling />} />
               <Route path="/status" element={<ClaimTracker />} />
+              <Route path="/claims" element={<ClaimTracker />} />
+              <Route path="/claims/:claimId" element={<ClaimTracker />} />
               <Route path="/architecture" element={<Architecture />} />
               <Route path="/enroll" element={<Enroll />} />
             </Routes>

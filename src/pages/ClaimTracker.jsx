@@ -1,18 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useLanguage } from '../context/LanguageContext';
 import { safeStr } from '../utils/safeStr';
-import { getClaims, updateClaimStatus } from '../services/firebase';
-import { Clock, CheckCircle2, ChevronDown, ChevronUp, AlertCircle, MessageSquare, ShieldCheck, Tractor } from 'lucide-react';
+import { getClaims, addClaimStatusHistory } from '../services/firebase';
+import { generateCropLossIntimationPDF } from '../services/pdf';
+import { 
+  CLAIM_STATUS_ENUM, 
+  STATUS_SOURCES, 
+  getStatusGuidance 
+} from '../services/claimTrackerEngine';
+import { 
+  Clock, CheckCircle2, AlertCircle, MessageSquare, ShieldCheck, Download, 
+  PhoneCall, ExternalLink, ArrowLeft, ArrowRight, Filter, Plus, FileText, 
+  Upload, Shield, AlertTriangle, Building2, Landmark, Globe, Check
+} from 'lucide-react';
 
 export default function ClaimTracker() {
   const { t, language } = useLanguage();
   const navigate = useNavigate();
+  const { claimId: urlClaimId } = useParams();
 
   const [claims, setClaims] = useState([]);
+  const [selectedClaim, setSelectedClaim] = useState(null);
+  const [activeFilter, setActiveFilter] = useState('ALL');
   const [loading, setLoading] = useState(true);
-  const [expandedClaim, setExpandedClaim] = useState(null); // stores claimId
-  const [currentTime, setCurrentTime] = useState(Date.now());
+
+  // Status Update Form State (Farmer-Reported Status Updates)
+  const [showUpdateModal, setShowUpdateModal] = useState(false);
+  const [updateSource, setUpdateSource] = useState('FARMER_REPORTED');
+  const [updateStatus, setUpdateStatus] = useState('ASSESSMENT_PENDING');
+  const [updateDate, setOfficialDate] = useState(new Date().toISOString().split('T')[0]);
+  const [updateOfficialRef, setUpdateOfficialRef] = useState('');
+  const [updateNote, setUpdateNote] = useState('');
+  const [updateEvidenceFile, setUpdateEvidenceFile] = useState(null);
+
+  // Additional Document Upload State
+  const [showDocModal, setShowDocModal] = useState(false);
+  const [docTitle, setDocTitle] = useState('Jamabandi Land Fard Copy');
 
   useEffect(() => {
     const uid = localStorage.getItem('kisan_current_uid');
@@ -22,309 +46,482 @@ export default function ClaimTracker() {
     }
 
     getClaims(uid).then(data => {
-      setClaims(data || []);
+      let loaded = data || [];
+      const savedReportStr = localStorage.getItem('kisan_active_loss_report');
+      if (savedReportStr) {
+        try {
+          const saved = JSON.parse(savedReportStr);
+          if (saved && saved.internalReportId) {
+            const exists = loaded.some(c => (c.claimId || c.internalReportId) === saved.internalReportId);
+            if (!exists) {
+              loaded = [saved, ...loaded];
+            }
+          }
+        } catch (e) {}
+      }
+
+      setClaims(loaded);
       setLoading(false);
+
+      if (urlClaimId) {
+        const found = loaded.find(c => (c.claimId || c.internalReportId) === urlClaimId);
+        if (found) setSelectedClaim(found);
+      } else if (loaded.length > 0) {
+        setSelectedClaim(loaded[0]);
+      }
     });
-  }, [navigate]);
+  }, [navigate, urlClaimId]);
 
-  // Live countdown clock ticking
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setCurrentTime(Date.now());
-    }, 1000);
-    return () => clearInterval(timer);
-  }, []);
-
-  const toggleExpand = (claimId) => {
-    if (expandedClaim === claimId) {
-      setExpandedClaim(null);
-    } else {
-      setExpandedClaim(claimId);
-    }
+  const handleSelectClaim = (c) => {
+    setSelectedClaim(c);
   };
 
-  // Status index lookup
-  const STATUSES = ['Filed', 'Verified', 'Under Review', 'Approved', 'Paid'];
+  const handleSaveStatusUpdate = async () => {
+    if (!selectedClaim) return;
+    const uid = localStorage.getItem('kisan_current_uid');
+    const targetId = selectedClaim.claimId || selectedClaim.internalReportId;
 
-  // Manual Trigger to fast-track claim status in demo mode!
-  // This is a powerful hackathon demonstration trick to let judges proceed through steps.
-  const handleFastTrack = async (claimId, currentStatus) => {
-    const currentIdx = STATUSES.indexOf(currentStatus);
-    if (currentIdx < STATUSES.length - 1) {
-      const nextStatus = STATUSES[currentIdx + 1];
-      const uid = localStorage.getItem('kisan_current_uid');
-      
-      // Update DB
-      await updateClaimStatus(uid, claimId, nextStatus);
-      
-      // Update UI state
-      setClaims(prevClaims => 
-        prevClaims.map(c => c.claimId === claimId ? { ...c, status: nextStatus } : c)
-      );
-    }
+    const historyEvent = {
+      status: updateStatus,
+      source: updateSource,
+      message: updateNote || `Status updated to ${CLAIM_STATUS_ENUM[updateStatus]?.label || updateStatus}`,
+      officialReference: updateOfficialRef || selectedClaim.officialClaimId || '',
+      updatedBy: 'Farmer User',
+      evidenceName: updateEvidenceFile ? updateEvidenceFile.name : null
+    };
+
+    await addClaimStatusHistory(uid, targetId, historyEvent);
+
+    // Update local UI state
+    const updatedClaims = claims.map(c => {
+      if ((c.claimId || c.internalReportId) === targetId) {
+        const history = c.statusHistory || [];
+        return {
+          ...c,
+          status: updateStatus,
+          statusSource: updateSource,
+          officialClaimId: updateOfficialRef || c.officialClaimId,
+          updatedAt: new Date().toISOString(),
+          statusHistory: [...history, { ...historyEvent, timestamp: new Date().toISOString() }]
+        };
+      }
+      return c;
+    });
+
+    setClaims(updatedClaims);
+    const updatedSelected = updatedClaims.find(c => (c.claimId || c.internalReportId) === targetId);
+    setSelectedClaim(updatedSelected);
+    setShowUpdateModal(false);
+    setUpdateNote('');
+    alert("Claim status update recorded successfully!");
   };
 
-  const renderCountdown = (filingDateStr) => {
-    const filingTime = new Date(filingDateStr).getTime();
-    const deadline = filingTime + 72 * 60 * 60 * 1000;
-    const diff = deadline - currentTime;
-
-    if (diff <= 0) {
-      return <span className="text-red-600 font-bold">Expired</span>;
-    }
-
-    const hours = Math.floor(diff / (1000 * 60 * 60));
-    const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-    const secs = Math.floor((diff % (1000 * 60)) / 1000);
-
-    let textColor = 'text-green-600';
-    if (hours < 24) textColor = 'text-amber-600';
-    if (hours < 12) textColor = 'text-red-600 font-bold timer-critical-pulse';
-
-    return (
-      <span className={`${textColor} font-mono flex items-center gap-1.5`}>
-        <Clock className="w-4 h-4" />
-        {hours.toString().padStart(2, '0')}:{mins.toString().padStart(2, '0')}:{secs.toString().padStart(2, '0')} {t('remaining')}
-      </span>
-    );
+  const handleDownloadPDF = (c) => {
+    generateCropLossIntimationPDF({
+      internalReportId: c.internalReportId || c.claimId,
+      officialClaimId: c.officialClaimId,
+      farmerName: c.farmerName || 'Bhushan Diwakar',
+      aadhaarMasked: c.aadhaarMasked || 'XXXX XXXX 6032',
+      policyScheme: c.policyScheme || 'PMFBY',
+      policyId: c.policyId || 'PMF-2026-8912',
+      policyCrop: c.policyCrop || c.crop || 'Cotton',
+      insurer: c.insurer || 'AIC / Agriculture Insurance Company of India',
+      khasraNo: c.khasraNo || '18/2 (2-0)',
+      insuredArea: c.insuredArea || `${c.acresAffected || 2.2} Acres`,
+      affectedArea: c.affectedArea || `${c.acresAffected || 2.2} Acres`,
+      eventType: c.eventType || c.damageType || 'Flood & Inundation',
+      eventDate: c.eventDate || new Date().toISOString().split('T')[0],
+      eventTime: c.eventTime || '14:00',
+      gpsCoords: c.gpsCoords,
+      aiCrop: c.aiCrop,
+      aiDamage: c.aiDamage,
+      aiConfidence: c.aiConfidence
+    });
   };
+
+  // Filter Claims
+  const filteredClaims = claims.filter(c => {
+    if (activeFilter === 'ALL') return true;
+    if (activeFilter === 'PENDING_INTIMATION') return c.status === 'OFFICIAL_INTIMATION_PENDING' || !c.officialClaimId;
+    if (activeFilter === 'ASSESSMENT') return c.status === 'ASSESSMENT_PENDING' || c.status === 'ASSESSMENT_IN_PROGRESS' || c.status === 'OFFICIAL_INTIMATION_RECORDED';
+    if (activeFilter === 'APPROVED_PAID') return c.status === 'CLAIM_APPROVED' || c.status === 'PAYMENT_COMPLETED' || c.status === 'PAYMENT_PENDING';
+    return true;
+  });
 
   return (
-    <div className="max-w-3xl mx-auto p-4 space-y-6 pb-20 md:pb-6">
-      {/* Header */}
-      <div className="bg-white rounded-3xl p-6 border border-green-50 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="max-w-5xl mx-auto p-4 space-y-6 pb-24 md:pb-8 mt-2">
+      {/* Page Header */}
+      <div className="bg-white rounded-3xl p-5 border border-green-50 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-textPrimary flex items-center gap-2">
-            <CheckCircle2 className="w-7 h-7 text-primary-green" />
-            <span>{t('trackerTitle')}</span>
+          <h1 className="text-xl sm:text-2xl font-black text-green-950 flex items-center gap-2">
+            <CheckCircle2 className="w-6 h-6 text-primary-green" />
+            <span>Crop Loss Claim Tracker & Status History</span>
           </h1>
-          <p className="text-sm text-textSecondary mt-1">
-            Monitor real-time progress on filed compensation claims, access AI-analyzed logs, or initiate a support chat.
+          <p className="text-xs text-textSecondary mt-0.5">
+            Transparent tracking for internal loss reports, official helpline intimation, and insurer survey status.
           </p>
         </div>
+
+        <button
+          onClick={() => navigate('/claim')}
+          className="px-5 py-2.5 bg-primary-green hover:bg-green-700 text-white font-bold text-xs rounded-full flex items-center justify-center gap-1.5 shadow-md shadow-green-200 cursor-pointer shrink-0"
+        >
+          <Plus className="w-4 h-4" /> Report New Crop Loss
+        </button>
       </div>
 
       {loading ? (
-        <div className="bg-white rounded-3xl p-8 border border-green-50 shadow-sm flex flex-col items-center justify-center space-y-3">
-          <div className="w-8 h-8 border-3 border-primary-green border-t-transparent rounded-full animate-spin"></div>
-          <span className="text-sm font-bold text-textSecondary">Loading claims history...</span>
-        </div>
+        <div className="text-center py-12 text-gray-500 font-bold">Loading claim records...</div>
       ) : claims.length === 0 ? (
-        <div className="bg-white rounded-3xl p-8 border border-dashed border-green-200 text-center space-y-4">
-          <p className="text-sm text-textSecondary italic">You have no active claims registered.</p>
+        <div className="bg-white rounded-3xl p-8 border text-center space-y-4 shadow-sm">
+          <Shield className="w-12 h-12 text-gray-300 mx-auto" />
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-textPrimary">No Crop Loss Reports Found</h3>
+            <p className="text-xs text-textSecondary">You have not created any crop loss intimation reports yet.</p>
+          </div>
           <button
             onClick={() => navigate('/claim')}
             className="px-6 py-2.5 bg-primary-green text-white font-bold rounded-full text-xs shadow-md"
           >
-            File a Claim Now
+            Create Your First Loss Intimation Report
           </button>
         </div>
       ) : (
-        <div className="space-y-4">
-          {claims.map((claim) => {
-            const dateObj = new Date(claim.dateOfFiling);
-            const formattedDate = dateObj.toLocaleDateString(language === 'pa' ? 'pa-IN' : 'en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-            const isExpanded = expandedClaim === claim.claimId;
-            
-            return (
-              <div key={claim.claimId} className="bg-white rounded-3xl border border-green-50 shadow-sm overflow-hidden transition-all">
-                {/* Upper Summary Bar */}
-                <div 
-                  className="p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4 cursor-pointer hover:bg-green-50/10"
-                  onClick={() => toggleExpand(claim.claimId)}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* ============================================================ */}
+          {/* LEFT SIDEBAR: CLAIMS LIST & FILTER TABS (5 Cols) */}
+          {/* ============================================================ */}
+          <div className="lg:col-span-5 space-y-4">
+            {/* Filter Pills */}
+            <div className="flex gap-1.5 overflow-x-auto pb-1 text-[11px] font-bold">
+              {[
+                { id: 'ALL', label: 'All' },
+                { id: 'PENDING_INTIMATION', label: 'Intimation Pending' },
+                { id: 'ASSESSMENT', label: 'Assessment' },
+                { id: 'APPROVED_PAID', label: 'Approved / Paid' }
+              ].map(f => (
+                <button
+                  key={f.id}
+                  onClick={() => setActiveFilter(f.id)}
+                  className={`px-3 py-1.5 rounded-full whitespace-nowrap border transition-all cursor-pointer ${
+                    activeFilter === f.id ? 'bg-primary-green text-white border-primary-green shadow-2xs' : 'bg-white border-gray-200 text-gray-600 hover:border-green-300'
+                  }`}
                 >
-                  <div className="space-y-1">
-                    <span className="text-[10px] font-bold text-textSecondary uppercase tracking-widest bg-gray-100 px-2 py-0.5 rounded">
-                      Claim ID: <span className="font-mono">{claim.claimId}</span>
+                  {f.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Claim Cards List */}
+            <div className="space-y-3">
+              {filteredClaims.map((c) => {
+                const cId = c.claimId || c.internalReportId;
+                const isSelected = (selectedClaim?.claimId || selectedClaim?.internalReportId) === cId;
+                const statusObj = CLAIM_STATUS_ENUM[c.status] || { label: c.status || 'Loss Report Created', color: 'blue' };
+                const sourceObj = STATUS_SOURCES[c.statusSource] || STATUS_SOURCES.KISANSAATHI;
+
+                return (
+                  <div
+                    key={cId}
+                    onClick={() => handleSelectClaim(c)}
+                    className={`p-4 rounded-2xl border-2 transition-all cursor-pointer space-y-3 ${
+                      isSelected ? 'border-primary-green bg-green-50/40 shadow-sm' : 'border-gray-200 hover:border-green-200 bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px] font-extrabold bg-green-100 text-green-900 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                        {c.policyScheme || 'PMFBY'}
+                      </span>
+                      <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700">
+                        SOURCE: {sourceObj.badge}
+                      </span>
+                    </div>
+
+                    <div>
+                      <h4 className="text-sm font-extrabold text-textPrimary">
+                        {c.policyCrop || c.crop || 'Cotton'} — {c.eventType || c.damageType || 'Crop Loss'}
+                      </h4>
+                      <p className="text-[11px] text-textSecondary">
+                        Report ID: <strong className="font-mono text-textPrimary">{cId}</strong>
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 text-[11px] pt-1 border-t border-gray-100">
+                      <div>
+                        <span className="text-gray-400 block font-semibold">Loss Date:</span>
+                        <strong className="text-textPrimary font-bold">{c.eventDate || '24/08/2026'}</strong>
+                      </div>
+                      <div>
+                        <span className="text-gray-400 block font-semibold">Official Ref:</span>
+                        <strong className="text-textPrimary font-mono">{c.officialClaimId || 'Not recorded'}</strong>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t border-gray-100 flex items-center justify-between text-xs">
+                      <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900">
+                        {statusObj.label}
+                      </span>
+                      <span className="text-[11px] font-bold text-primary-green flex items-center gap-1">
+                        Track Details <ArrowRight className="w-3.5 h-3.5" />
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ============================================================ */}
+          {/* RIGHT PANEL: CLAIM DETAILS & TIMELINE TRACKER (7 Cols) */}
+          {/* ============================================================ */}
+          {selectedClaim && (
+            <div className="lg:col-span-7 space-y-6">
+              {/* Claim Overview Header Card */}
+              <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-gray-100 pb-3">
+                  <div>
+                    <span className="text-[10px] font-extrabold bg-green-100 text-green-900 px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                      {selectedClaim.policyScheme || 'PMFBY'} — {selectedClaim.policyCrop || selectedClaim.crop || 'Cotton'}
                     </span>
-                    <h3 className="text-base font-extrabold text-textPrimary">
-                      {safeStr(claim.crop, language)} ({claim.acresAffected} Acres) - {safeStr(claim.damageType, language)}
-                    </h3>
-                    <p className="text-xs text-textSecondary">{t('dateFiled')}: {formattedDate}</p>
+                    <h2 className="text-lg font-black text-textPrimary mt-1">
+                      {selectedClaim.eventType || selectedClaim.damageType || 'Crop Loss Event'}
+                    </h2>
                   </div>
 
-                  <div className="flex items-center gap-3 self-end sm:self-center">
-                    <div className="text-right">
-                      {claim.status === 'Filed' && (
-                        <div className="flex flex-col items-end">
-                          <span className="text-sky-600 text-xs font-extrabold flex items-center gap-1.5 justify-end">
-                            <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-ping"></span>
-                            Application in progress by AI Agent
-                          </span>
-                          <span className="text-[10px] text-textSecondary mt-0.5 block">{renderCountdown(claim.dateOfFiling)}</span>
-                        </div>
-                      )}
-                      {claim.status === 'Verified' && (
-                        <span className="text-sky-600 text-xs font-extrabold flex items-center gap-1.5 justify-end">
-                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-ping"></span>
-                          Verification in progress by AI Agent
-                        </span>
-                      )}
-                      {claim.status === 'Under Review' && (
-                        <span className="text-sky-600 text-xs font-extrabold flex items-center gap-1.5 justify-end">
-                          <span className="w-1.5 h-1.5 rounded-full bg-sky-500 animate-ping"></span>
-                          Review in progress by AI Agent
-                        </span>
-                      )}
-                      {claim.status === 'Approved' && (
-                        <span className="text-green-600 text-xs font-bold block">Approved: ₹{(claim.acresAffected * 15000).toLocaleString('en-IN')}</span>
-                      )}
-                      {claim.status === 'Paid' && (
-                        <span className="text-green-700 text-xs font-extrabold bg-green-50 px-2 py-0.5 rounded">Disbursed: ₹{(claim.acresAffected * 15000).toLocaleString('en-IN')}</span>
-                      )}
-                    </div>
-                    {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-400" /> : <ChevronDown className="w-5 h-5 text-gray-400" />}
+                  <button
+                    onClick={() => handleDownloadPDF(selectedClaim)}
+                    className="p-2.5 bg-green-50 hover:bg-green-100 text-primary-green font-bold rounded-2xl border border-green-200 flex items-center gap-1.5 text-xs transition-all cursor-pointer shrink-0"
+                  >
+                    <Download className="w-4 h-4" /> Download Loss Packet PDF
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                  <div>
+                    <span className="text-gray-400 block font-semibold">Policy ID:</span>
+                    <strong className="text-textPrimary font-bold">{selectedClaim.policyId || 'PMF-2026-8912'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block font-semibold">Loss Date:</span>
+                    <strong className="text-textPrimary font-bold">{selectedClaim.eventDate || '24/08/2026'}</strong>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block font-semibold">KisanSaathi Ref:</span>
+                    <strong className="text-textPrimary font-mono text-[11px]">{selectedClaim.internalReportId || selectedClaim.claimId}</strong>
+                  </div>
+                  <div>
+                    <span className="text-gray-400 block font-semibold">Official Ref:</span>
+                    <strong className="text-textPrimary font-mono text-[11px]">{selectedClaim.officialClaimId || 'Not recorded'}</strong>
                   </div>
                 </div>
 
-                {/* Timeline Stepper */}
-                <div className="px-5 pb-5 border-b border-gray-50">
-                  <div className="grid grid-cols-5 gap-1 text-center">
-                    {[
-                      { key: 'Filed', label: t('statusFiled') },
-                      { key: 'Verified', label: t('statusVerified') },
-                      { key: 'Under Review', label: t('statusUnderReview') },
-                      { key: 'Approved', label: t('statusApproved') },
-                      { key: 'Paid', label: t('statusPaid') }
-                    ].map((step, idx) => {
-                      const currentIdx = STATUSES.indexOf(claim.status);
-                      let circleColor = 'border-gray-200 text-gray-400 bg-white';
-                      let labelColor = 'text-gray-400';
-                      
-                      if (idx === currentIdx) {
-                        circleColor = 'border-sky-500 bg-sky-50 text-sky-600 ring-2 ring-sky-100';
-                        labelColor = 'text-sky-600 font-bold';
-                      } else if (idx < currentIdx) {
-                        circleColor = 'border-green-500 bg-green-500 text-white';
-                        labelColor = 'text-green-700 font-medium';
-                      }
-                      
+                {/* Dynamic Status Guidance Box */}
+                {(() => {
+                  const guidance = getStatusGuidance(selectedClaim.status, selectedClaim);
+                  return (
+                    <div className="bg-gradient-to-br from-amber-50 to-orange-50/40 border border-amber-200 rounded-2xl p-4 space-y-2 text-xs">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-extrabold text-amber-950 text-sm flex items-center gap-1.5">
+                          <AlertCircle className="w-4 h-4 text-amber-600" />
+                          <span>CURRENT STATUS: {CLAIM_STATUS_ENUM[selectedClaim.status]?.label || selectedClaim.status || 'Loss Report Created'}</span>
+                        </h4>
+                        <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                          SOURCE: {(STATUS_SOURCES[selectedClaim.statusSource] || STATUS_SOURCES.KISANSAATHI).badge}
+                        </span>
+                      </div>
+
+                      <div className="space-y-1 text-amber-900">
+                        <div><strong className="text-amber-950">What does this mean?</strong> {guidance.meaning}</div>
+                        <div><strong className="text-amber-950">What do I need to do?</strong> {guidance.actionRequired}</div>
+                      </div>
+
+                      {guidance.actionType === 'CALL_14447' && (
+                        <div className="pt-2 flex gap-2">
+                          <a
+                            href="tel:14447"
+                            className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs"
+                          >
+                            <PhoneCall className="w-3.5 h-3.5" /> Call Helpline 14447 Now
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Status Update Trigger Bar */}
+              <div className="bg-white rounded-3xl p-4 border border-gray-200 shadow-sm flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <span className="text-xs font-extrabold text-textPrimary block">Received an update from 14447, Bank or Insurer?</span>
+                  <span className="text-[11px] text-textSecondary block">Record status updates with supporting SMS screenshots or document receipts.</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowUpdateModal(true)}
+                  className="px-4 py-2 bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Record Status Update
+                </button>
+              </div>
+
+              {/* Modal / Form: Record Farmer Status Update */}
+              {showUpdateModal && (
+                <div className="bg-gradient-to-br from-indigo-50 to-blue-50/50 border-2 border-indigo-300 rounded-3xl p-5 space-y-4 animate-fadeIn text-xs">
+                  <div className="flex items-center justify-between border-b border-indigo-200 pb-2">
+                    <h4 className="font-extrabold text-indigo-950 text-sm flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-indigo-700" /> Record Official Status Update (Farmer-Reported)
+                    </h4>
+                    <button onClick={() => setShowUpdateModal(false)} className="text-gray-400 hover:text-gray-600 font-bold">✕</button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="font-bold text-indigo-950 block mb-1">Where did you receive this update?</label>
+                      <select
+                        value={updateSource}
+                        onChange={(e) => setUpdateSource(e.target.value)}
+                        className="w-full p-2.5 border border-indigo-200 rounded-xl font-semibold bg-white"
+                      >
+                        <option value="FARMER_REPORTED">Farmer Reported Update</option>
+                        <option value="OFFICIAL_PORTAL">NCIP Portal (pmfby.gov.in / 14447)</option>
+                        <option value="INSURER">Implementing Insurer Desk</option>
+                        <option value="BANK">Home Bank Branch Counter</option>
+                        <option value="AGRICULTURE_DEPARTMENT">Block Agriculture Office</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="font-bold text-indigo-950 block mb-1">What status were you given?</label>
+                      <select
+                        value={updateStatus}
+                        onChange={(e) => setUpdateStatus(e.target.value)}
+                        className="w-full p-2.5 border border-indigo-200 rounded-xl font-semibold bg-white"
+                      >
+                        {Object.values(CLAIM_STATUS_ENUM).map(st => (
+                          <option key={st.id} value={st.id}>{st.label} ({st.badge})</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="font-bold text-indigo-950 block mb-1">Official Reference Number (if issued)</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. NCIP-CLM-2026-90124"
+                        value={updateOfficialRef}
+                        onChange={(e) => setUpdateOfficialRef(e.target.value)}
+                        className="w-full p-2.5 border border-indigo-200 rounded-xl font-semibold bg-white"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="font-bold text-indigo-950 block mb-1">Date of Update</label>
+                      <input
+                        type="date"
+                        value={updateDate}
+                        onChange={(e) => setOfficialDate(e.target.value)}
+                        className="w-full p-2.5 border border-indigo-200 rounded-xl font-semibold bg-white"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="font-bold text-indigo-950 block mb-1">Additional Note / Explanation</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Received SMS from PMFBY helpline confirming loss survey team assigned."
+                      value={updateNote}
+                      onChange={(e) => setUpdateNote(e.target.value)}
+                      className="w-full p-2.5 border border-indigo-200 rounded-xl font-semibold bg-white"
+                    />
+                  </div>
+
+                  <div className="flex gap-2 justify-end pt-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowUpdateModal(false)}
+                      className="px-4 py-2 bg-white border border-gray-300 text-gray-700 font-bold rounded-xl text-xs"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSaveStatusUpdate}
+                      className="px-5 py-2 bg-indigo-700 hover:bg-indigo-800 text-white font-bold rounded-xl text-xs shadow-xs"
+                    >
+                      Save Status Update & Audit Trail
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Vertical Visual Timeline Progress */}
+              <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm space-y-4">
+                <h3 className="text-sm font-extrabold text-textPrimary uppercase tracking-wider flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-primary-green" /> Claim Progress Timeline
+                </h3>
+
+                <div className="space-y-4 text-xs pl-2">
+                  {[
+                    { stepNum: 1, title: '1. Loss Report Created in KisanSaathi', desc: 'Loss dossier compiled with land & parcel details.', done: true },
+                    { stepNum: 2, title: '2. Field Photo Evidence & GPS Captured', desc: 'Damage overview photos & lat/lng location metadata saved.', done: true },
+                    { stepNum: 3, title: '3. Official Loss Intimation (14447 / Bank)', desc: selectedClaim.officialClaimId ? `Ref: ${selectedClaim.officialClaimId}` : 'Loss reported to official PMFBY channel.', done: !!selectedClaim.officialClaimId },
+                    { stepNum: 4, title: '4. Assessment by Insurer / Authorized Agency', desc: 'Field survey loss assessment or CCE yield evaluation.', done: selectedClaim.status === 'ASSESSMENT_IN_PROGRESS' || selectedClaim.status === 'CLAIM_APPROVED' },
+                    { stepNum: 5, title: '5. Official Claim Decision', desc: 'Admissibility & payable compensation calculated under scheme terms.', done: selectedClaim.status === 'CLAIM_APPROVED' || selectedClaim.status === 'CLAIM_REJECTED' },
+                    { stepNum: 6, title: '6. Payment via Direct Benefit Transfer', desc: 'Compensation credited directly to farmer bank account.', done: selectedClaim.status === 'PAYMENT_COMPLETED' }
+                  ].map((st) => (
+                    <div key={st.stepNum} className="flex items-start gap-3">
+                      <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center font-bold text-[10px] shrink-0 ${
+                        st.done ? 'border-primary-green bg-primary-green text-white' : 'border-gray-300 bg-white text-gray-400'
+                      }`}>
+                        {st.done ? <Check className="w-3.5 h-3.5 stroke-[3]" /> : st.stepNum}
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className={`font-bold block text-xs ${st.done ? 'text-green-950' : 'text-gray-500'}`}>{st.title}</span>
+                        <span className="text-[11px] text-textSecondary block">{st.desc}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Status History Audit Trail */}
+              <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm space-y-3">
+                <h3 className="text-sm font-extrabold text-textPrimary uppercase tracking-wider block">Status History Audit Log</h3>
+
+                {!(selectedClaim.statusHistory && selectedClaim.statusHistory.length > 0) ? (
+                  <div className="p-3 bg-gray-50 rounded-2xl border border-gray-200 text-xs text-gray-500 italic">
+                    No status updates recorded yet. Initial loss report created on {selectedClaim.eventDate || '24/08/2026'}.
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 text-xs">
+                    {selectedClaim.statusHistory.map((h, idx) => {
+                      const sObj = CLAIM_STATUS_ENUM[h.status] || { label: h.status };
+                      const srcObj = STATUS_SOURCES[h.source] || STATUS_SOURCES.FARMER_REPORTED;
+                      const dateStr = h.timestamp ? new Date(h.timestamp).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : '24/08/2026';
+
                       return (
-                        <div key={step.key} className="flex flex-col items-center">
-                          <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full border-2 flex items-center justify-center text-[9px] sm:text-[10px] font-bold transition-all ${circleColor}`}>
-                            {idx < currentIdx ? '✓' : idx + 1}
+                        <div key={idx} className="p-3 bg-gray-50 rounded-2xl border border-gray-200 space-y-1">
+                          <div className="flex items-center justify-between">
+                            <span className="font-extrabold text-textPrimary text-xs">{sObj.label}</span>
+                            <span className="text-[9px] font-extrabold px-2 py-0.5 rounded-full bg-gray-200 text-gray-800 uppercase">
+                              {srcObj.badge}
+                            </span>
                           </div>
-                          <span className={`text-[9px] sm:text-[10px] mt-1 truncate max-w-[64px] sm:max-w-none ${labelColor}`}>
-                            {step.label}
-                          </span>
+                          <p className="text-[11px] text-textSecondary">{h.message}</p>
+                          <div className="text-[10px] text-gray-400 pt-1 flex justify-between">
+                            <span>Updated by: {h.updatedBy || 'System'}</span>
+                            <span>{dateStr}</span>
+                          </div>
                         </div>
                       );
                     })}
                   </div>
-                </div>
-
-                {/* Expanded Details Panel */}
-                {isExpanded && (
-                  <div className="p-5 bg-gray-50/50 border-t border-gray-50 space-y-4 text-xs text-textPrimary animate-fadeIn">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {/* Farmer credentials summary */}
-                      <div className="bg-white p-4 rounded-2xl border border-gray-100 space-y-2">
-                        <h4 className="font-bold text-textPrimary flex items-center gap-1">
-                          <Tractor className="w-4 h-4 text-primary-green" />
-                          <span>Farmer Details</span>
-                        </h4>
-                        <div className="space-y-1">
-                          <div className="flex justify-between"><span className="text-gray-400">Name:</span> <span className="font-semibold">{claim.farmerDetails?.name}</span></div>
-                          <div className="flex justify-between"><span className="text-gray-400">Aadhaar (Last 4):</span> <span className="font-semibold">{claim.farmerDetails?.aadhaar || 'N/A'}</span></div>
-                          <div className="flex justify-between"><span className="text-gray-400">District:</span> <span className="font-semibold">{claim.farmerDetails?.district}</span></div>
-                          <div className="flex justify-between"><span className="text-gray-400">Policy Scheme:</span> <span className="font-semibold text-primary">{claim.farmerDetails?.insurancePolicy || 'None'}</span></div>
-                        </div>
-                      </div>
-
-                      {/* Bank account details */}
-                      <div className="bg-white p-4 rounded-2xl border border-gray-100 space-y-2">
-                        <h4 className="font-bold text-textPrimary flex items-center gap-1">
-                          <Clock className="w-4 h-4 text-primary-green" />
-                          <span>Disbursement Bank Account</span>
-                        </h4>
-                        <div className="space-y-1">
-                          <div className="flex justify-between"><span className="text-gray-400">Bank Account:</span> <span className="font-mono font-semibold">{claim.farmerDetails?.bankAccount || 'N/A'}</span></div>
-                          <div className="flex justify-between"><span className="text-gray-400">IFSC Code:</span> <span className="font-mono font-semibold">{claim.farmerDetails?.ifsc || 'N/A'}</span></div>
-                          {claim.status === 'Approved' || claim.status === 'Paid' ? (
-                            <div className="flex justify-between text-green-700 font-bold pt-1 border-t border-dashed mt-1">
-                              <span>Compensation Amount:</span>
-                              <span>₹{(claim.acresAffected * 15000).toLocaleString('en-IN')}</span>
-                            </div>
-                          ) : (
-                            <div className="flex justify-between text-gray-500 font-bold pt-1 border-t border-dashed mt-1">
-                              <span>Est. Compensation:</span>
-                              <span>₹{(claim.acresAffected * 15000).toLocaleString('en-IN')}</span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Crop damage photo analysis details */}
-                    {claim.photoAnalysis && (
-                      <div className="bg-white p-4 rounded-2xl border border-gray-100 space-y-2">
-                        <h4 className="font-bold text-textPrimary flex items-center gap-1">
-                          <ShieldCheck className="w-4 h-4 text-primary-green" />
-                          <span>Gemini AI Vision Crop Analysis Report</span>
-                        </h4>
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 py-1 text-[11px]">
-                          <div className="bg-green-50/50 p-2 rounded-xl">
-                            <span className="text-gray-400 block">Crop Identified</span>
-                            <span className="font-bold text-textPrimary">{claim.photoAnalysis.cropIdentified}</span>
-                          </div>
-                          <div className="bg-green-50/50 p-2 rounded-xl">
-                            <span className="text-gray-400 block">Damage Source</span>
-                            <span className="font-bold text-textPrimary">{claim.photoAnalysis.damageType}</span>
-                          </div>
-                          <div className="bg-green-50/50 p-2 rounded-xl">
-                            <span className="text-gray-400 block">AI Severity</span>
-                            <span className="font-bold text-orange-700 uppercase">{claim.photoAnalysis.severity}</span>
-                          </div>
-                          <div className="bg-green-50/50 p-2 rounded-xl">
-                            <span className="text-gray-400 block">AI Confidence</span>
-                            <span className="font-bold text-textPrimary">{claim.photoAnalysis.confidence}</span>
-                          </div>
-                        </div>
-                        <p className="text-[11px] text-gray-500 leading-relaxed italic bg-gray-50 p-2.5 rounded-xl border mt-2">
-                          " {claim.photoAnalysis.notes} "
-                        </p>
-                      </div>
-                    )}
-                    
-                    {/* Static AI Agent Verification Log */}
-                    {(claim.status === 'Filed' || claim.status === 'Verified' || claim.status === 'Under Review') && (
-                      <div className="bg-sky-50/50 p-4 rounded-2xl border border-sky-100/50 space-y-1">
-                        <h4 className="font-bold text-sky-850 flex items-center gap-1.5 text-[11px] uppercase tracking-wide">
-                          <ShieldCheck className="w-4 h-4 text-sky-500 animate-pulse" />
-                          <span>AI Agent Claim Assessment Log</span>
-                        </h4>
-                        <p className="text-[11px] text-sky-700 leading-relaxed font-semibold">
-                          🤖 AI Agent Status: claim verification is currently in progress. The agent is correlating your crop picture metadata, district pest threshold levels (Malwa cotton belt), and localized weather anomalies. Automated disbursement approval pending.
-                        </p>
-                      </div>
-                    )}
-
-                    {/* Operational controls (Follow-up + fast track) */}
-                    <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
-                      <button
-                        onClick={() => navigate('/chat', { state: { query: `I filed a claim on ${formattedDate} for ${claim.crop} damage. What is the status of my claim ${claim.claimId}?` } })}
-                        className="w-full sm:w-auto px-5 py-2.5 bg-primary-green hover:bg-green-700 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 shadow-xs"
-                      >
-                        <MessageSquare className="w-4 h-4" />
-                        <span>Chat Follow-up</span>
-                      </button>
-
-                      {claim.status !== 'Paid' && (
-                        <button
-                          onClick={() => handleFastTrack(claim.claimId, claim.status)}
-                          className="w-full sm:w-auto px-5 py-2.5 border border-sky-200 hover:bg-sky-50 text-sky-700 font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all text-xs"
-                        >
-                          <ShieldCheck className="w-4 h-4" />
-                          <span>Demo Fast-Track Step ⏩</span>
-                        </button>
-                      )}
-                    </div>
-
-                  </div>
                 )}
               </div>
-            );
-          })}
+            </div>
+          )}
         </div>
       )}
     </div>
