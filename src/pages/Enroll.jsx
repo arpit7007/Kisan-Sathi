@@ -946,6 +946,111 @@ export default function Enroll() {
                 </button>
               </div>
 
+              {/* --- 4-STEP NEXT ACTIONS FOR FARMER --- */}
+              <div className="bg-gradient-to-br from-green-50/60 to-emerald-50/40 border border-green-200/80 rounded-2xl p-5 space-y-4">
+                <h4 className="text-sm font-extrabold text-green-900 flex items-center gap-2">
+                  <CheckCircle2 className="w-5 h-5 text-primary-green" />
+                  <span>4-Step Action Plan: What To Do With This Generated Dossier</span>
+                </h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="bg-white p-3 rounded-xl border border-green-100 space-y-1">
+                    <span className="font-bold text-green-900 block">Step 1 — Download & Print</span>
+                    <p className="text-textSecondary leading-normal text-[11px]">Print 2 physical copies of this generated proposal packet.</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-green-100 space-y-1">
+                    <span className="font-bold text-green-900 block">Step 2 — Sign / Thumb Impression</span>
+                    <p className="text-textSecondary leading-normal text-[11px]">Sign or place thumb mark in the Page 5 Farmer Declaration box.</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-green-100 space-y-1">
+                    <span className="font-bold text-green-900 block">Step 3 — Attach Physical Proofs</span>
+                    <p className="text-textSecondary leading-normal text-[11px]">Attach physical copies of Aadhaar, Land Fard, and Bank Passbook.</p>
+                  </div>
+                  <div className="bg-white p-3 rounded-xl border border-green-100 space-y-1">
+                    <span className="font-bold text-green-900 block">Step 4 — Submit at Authorized Channel</span>
+                    <p className="text-textSecondary leading-normal text-[11px]">Take to your nearest CSC Center, Bank Branch, PACS, or Portal.</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* --- LOANEE VS NON-LOANEE GUIDANCE --- */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                <div className="p-4 rounded-2xl bg-blue-50/50 border border-blue-200 space-y-2">
+                  <span className="font-extrabold text-blue-900 flex items-center gap-1.5 text-xs">
+                    <CreditCard className="w-4 h-4 text-blue-700" /> 1. Loanee Farmer (KCC Loan Holders)
+                  </span>
+                  <p className="text-blue-900 leading-relaxed text-[11px]">
+                    If you have an active Kisan Credit Card (KCC) or crop loan, your lending bank automatically enrolls your crop under PMFBY. Submit this dossier to your loan branch if you wish to update crop details.
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-200 space-y-2">
+                  <span className="font-extrabold text-emerald-900 flex items-center gap-1.5 text-xs">
+                    <UserCheck className="w-4 h-4 text-emerald-700" /> 2. Non-Loanee Farmer
+                  </span>
+                  <p className="text-emerald-900 leading-relaxed text-[11px]">
+                    If you do not have a crop loan, you must manually submit this proposal dossier + physical attachments to a CSC Center, Bank Branch, PACS, or Online Portal before the cutoff date.
+                  </p>
+                </div>
+              </div>
+
+              {/* --- REQUIRED PHYSICAL ATTACHMENTS CHECKLIST --- */}
+              <div className="bg-gray-50 border border-gray-200 rounded-2xl p-4 space-y-3 text-xs">
+                <span className="font-bold text-textPrimary block">Physical Document Attachments Required:</span>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-[11px]">
+                  <div className="bg-white p-2.5 rounded-xl border border-gray-200 font-semibold text-textPrimary flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-primary-green" /> Aadhaar Card Copy
+                  </div>
+                  <div className="bg-white p-2.5 rounded-xl border border-gray-200 font-semibold text-textPrimary flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-primary-green" /> Jamabandi / Fard Copy
+                  </div>
+                  <div className="bg-white p-2.5 rounded-xl border border-gray-200 font-semibold text-textPrimary flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-primary-green" /> Bank Passbook Copy
+                  </div>
+                  <div className="bg-white p-2.5 rounded-xl border border-gray-200 font-semibold text-textPrimary flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5 text-primary-green" /> Sowing Declaration
+                  </div>
+                </div>
+              </div>
+
+              {/* --- 6 OFFICIAL ENROLLMENT CHANNELS --- */}
+              <div className="space-y-4 pt-2 border-t border-gray-200">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm font-extrabold text-textPrimary flex items-center gap-2">
+                    <Building2 className="w-4 h-4 text-primary-green" />
+                    <span>6 Official Submission Channels</span>
+                  </h4>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {[
+                    { id: 'csc', label: '1. CSC Center', tag: 'Hybrid Digital', icon: Users },
+                    { id: 'bank', label: '2. Bank Branch', tag: 'Direct Bank', icon: Landmark },
+                    { id: 'pacs', label: '3. PACS Society', tag: 'Cooperative', icon: Building2 },
+                    { id: 'agent', label: '4. Insurance Agent', tag: 'Doorstep', icon: HelpCircle },
+                    { id: 'online', label: '5. Online Portal', tag: selectedPolicyObj?.portal || 'pmfby.gov.in', icon: Globe },
+                    { id: 'kcc', label: '6. KCC / Loanee Bank', tag: 'Auto Loan', icon: CreditCard }
+                  ].map(tab => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setActiveMethodTab(tab.id)}
+                      className={`p-3 rounded-xl border-2 text-left transition-all flex flex-col justify-between cursor-pointer ${
+                        activeMethodTab === tab.id
+                          ? 'border-primary-green bg-green-50/80 shadow-xs'
+                          : 'border-gray-200 hover:border-green-200 bg-white'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <tab.icon className={`w-4 h-4 ${activeMethodTab === tab.id ? 'text-primary-green' : 'text-gray-500'}`} />
+                        <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-gray-100 text-gray-700">{tab.tag}</span>
+                      </div>
+                      <span className="text-xs font-bold text-textPrimary mt-2 block">{tab.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
               {/* Official Submission Form Tracker */}
               <div className="bg-gradient-to-br from-blue-50 to-indigo-50/40 border border-blue-200/80 rounded-2xl p-5 space-y-4">
                 <div className="flex items-center justify-between">
