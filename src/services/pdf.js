@@ -760,11 +760,11 @@ export function generateCropLossIntimationPDF(claimData) {
   ay += drawRow('AI Confidence Score:', `${Math.round((claimData.aiConfidence || 0.91) * 100)}%`, ay);
   ay += drawRow('Advisory Note:', 'AI evidence analysis is supporting proof only. Final loss percentage and claim decision are determined by the insurer.', ay);
 
-  // Section 4: Declaration & Helpline Information
+  // Section 4: Declaration & Next Steps
   doc.setFontSize(11);
   doc.setTextColor(...textColor);
   doc.setFont('helvetica', 'bold');
-  doc.text('4. Farmer Declaration & Official Reporting Routes', 15, ay + 8);
+  doc.text('4. Farmer Declaration & Verification Notice', 15, ay + 8);
   doc.line(15, ay + 10, 195, ay + 10);
 
   let dy = ay + 18;
@@ -774,13 +774,41 @@ export function generateCropLossIntimationPDF(claimData) {
   doc.setFont('helvetica', 'normal');
   doc.text(doc.splitTextToSize(declMsg, 175), 20, dy);
 
+  // Section 5: NEXT STEPS FOR THE FARMER
+  doc.setFontSize(11);
+  doc.setTextColor(...textColor);
   doc.setFont('helvetica', 'bold');
-  doc.text('Official PMFBY Krishi Rakshak Loss Intimation Helpline: 14447 | Official Portal: pmfby.gov.in', 20, dy + 15);
+  doc.text('5. Next Steps For The Farmer & Official Reporting Instructions', 15, dy + 12);
+  doc.line(15, dy + 14, 195, dy + 14);
 
-  doc.setFontSize(7);
+  let ny = dy + 22;
+  const steps = [
+    '1. Review this Loss Intimation Packet and keep physical Aadhaar, Jamabandi Fard, and Bank Passbook ready.',
+    '2. Report the loss through official PMFBY Krishi Rakshak Helpline (14447) or Portal (pmfby.gov.in).',
+    '3. If submitting at Bank Branch or CSC, hand over physical copies of this packet + land records.',
+    '4. Obtain your official Loss Intimation Reference Number (e.g. NCIP-CLM-2026-XXXX) from 14447 or bank.',
+    '5. Save the official reference number in KisanSaathi to update your claim timeline.'
+  ];
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(0, 0, 0);
+  steps.forEach(st => {
+    doc.text(st, 20, ny);
+    ny += 5.5;
+  });
+
+  // Legal Notice Box
+  doc.setFillColor(248, 250, 252);
+  doc.rect(15, ny + 4, 180, 14, 'F');
+  doc.setDrawColor(...borderGray);
+  doc.rect(15, ny + 4, 180, 14, 'S');
+  doc.setFontSize(7.5);
+  doc.setFont('helvetica', 'bold');
   doc.setTextColor(100, 116, 139);
-  doc.setFont('helvetica', 'italic');
-  doc.text('KisanSaathi provides loss intimation preparation assistance. Official claim intimation ID is issued upon submission to 14447 or NCIP.', 105, 283, { align: 'center' });
+  doc.text('IMPORTANT NOTICE:', 20, ny + 9);
+  doc.setFont('helvetica', 'normal');
+  const noticeStr = 'This document is an assisted loss-intimation packet compiled by KisanSaathi. It is NOT proof that an insurance claim has been officially submitted or approved. Final loss assessment is conducted by the insurer.';
+  doc.text(doc.splitTextToSize(noticeStr, 170), 20, ny + 14);
 
   doc.save(`${internalId}_Loss_Intimation.pdf`);
   return internalId;
