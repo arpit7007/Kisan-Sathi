@@ -13,7 +13,7 @@ import {
 import { 
   Clock, CheckCircle2, AlertCircle, MessageSquare, ShieldCheck, Download, 
   PhoneCall, ExternalLink, ArrowLeft, ArrowRight, Filter, Plus, FileText, 
-  Upload, Shield, AlertTriangle, Building2, Landmark, Globe, Check, Edit3, X, CreditCard
+  Upload, Shield, AlertTriangle, Building2, Landmark, Globe, Check, Edit3, X, CreditCard, Lock
 } from 'lucide-react';
 
 export default function ClaimTracker() {
@@ -342,14 +342,32 @@ export default function ClaimTracker() {
     });
   };
 
-  // Filter Claims
-  const filteredClaims = claims.filter(c => {
-    if (activeFilter === 'ALL') return true;
-    if (activeFilter === 'PENDING_INTIMATION') return c.status === 'OFFICIAL_INTIMATION_PENDING' || !c.officialClaimId;
-    if (activeFilter === 'ASSESSMENT') return c.status === 'ASSESSMENT_PENDING' || c.status === 'ASSESSMENT_IN_PROGRESS' || c.status === 'OFFICIAL_INTIMATION_RECORDED';
-    if (activeFilter === 'APPROVED_PAID') return c.status === 'CLAIM_APPROVED' || c.status === 'PAYMENT_COMPLETED' || c.status === 'PAYMENT_PENDING';
-    return true;
-  });
+  // Sequential Prerequisite Calculations for Selected Claim
+  const isStep3Completed = !!selectedClaim?.officialClaimId || selectedClaim?.statusHistory?.some(h => h.step === 3 || h.status === 'OFFICIAL_INTIMATION_RECORDED');
+  const isStep4Completed = !!selectedClaim?.step4Completed || selectedClaim?.statusHistory?.some(h => h.step === 4 || h.status === 'ASSESSMENT_COMPLETED' || h.status === 'ASSESSMENT_IN_PROGRESS' || h.status === 'ASSESSMENT_PENDING');
+  const isStep5Completed = !!selectedClaim?.step5Completed || selectedClaim?.statusHistory?.some(h => h.step === 5 || h.status === 'CLAIM_APPROVED' || h.status === 'CLAIM_REJECTED' || h.status === 'CLAIM_DECISION_PENDING');
+  const isStep6Completed = !!selectedClaim?.step6Completed || selectedClaim?.statusHistory?.some(h => h.step === 6 || h.status === 'PAYMENT_COMPLETED' || h.status === 'PAYMENT_PENDING');
+
+  const handleOpenModal = (stepNum) => {
+    if (!selectedClaim) return;
+
+    if (stepNum === 4 && !isStep3Completed) {
+      alert("Prerequisite Required: You must record Step 3 (Official Loss Intimation Reference ID) before recording an assessment update.");
+      return;
+    }
+
+    if (stepNum === 5 && !isStep4Completed) {
+      alert("Prerequisite Required: You must record Step 4 (Assessment Update) before recording an official claim decision.");
+      return;
+    }
+
+    if (stepNum === 6 && !isStep5Completed) {
+      alert("Prerequisite Required: You must record Step 5 (Official Claim Decision) before recording payment information.");
+      return;
+    }
+
+    setActiveModalStep(stepNum);
+  };
 
   return (
     <div className="max-w-5xl mx-auto p-4 space-y-6 pb-24 md:pb-8 mt-2">
@@ -616,17 +634,17 @@ export default function ClaimTracker() {
 
                   {/* STEP 4: Assessment Update */}
                   <div className={`p-4 rounded-2xl border space-y-2 ${
-                    selectedClaim.step4Completed ? 'border-green-200 bg-green-50/30' : 'border-gray-200 bg-gray-50/50'
+                    isStep4Completed ? 'border-green-200 bg-green-50/30' : 'border-gray-200 bg-gray-50/50'
                   }`}>
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-textPrimary text-xs flex items-center gap-1.5">
-                        {selectedClaim.step4Completed ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Clock className="w-4 h-4 text-gray-400" />}
+                        {isStep4Completed ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Clock className="w-4 h-4 text-gray-400" />}
                         4. Assessment by Insurer / Authorized Agency
                       </span>
                       <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
-                        selectedClaim.step4Completed ? 'bg-sky-100 text-sky-800' : 'bg-gray-100 text-gray-700'
+                        isStep4Completed ? 'bg-sky-100 text-sky-800' : 'bg-gray-100 text-gray-700'
                       }`}>
-                        {selectedClaim.step4Completed ? '🔵 FARMER REPORTED' : '○ PENDING'}
+                        {isStep4Completed ? '🔵 FARMER REPORTED' : '○ PENDING'}
                       </span>
                     </div>
                     <p className="text-[11px] text-textSecondary">
@@ -634,27 +652,36 @@ export default function ClaimTracker() {
                     </p>
                     <button
                       type="button"
-                      onClick={() => setActiveModalStep(4)}
-                      className="px-3.5 py-1.5 bg-white border border-gray-300 hover:border-indigo-500 text-textPrimary font-bold text-xs rounded-xl shadow-2xs cursor-pointer flex items-center gap-1"
+                      onClick={() => handleOpenModal(4)}
+                      className={`px-3.5 py-1.5 font-bold text-xs rounded-xl shadow-2xs flex items-center gap-1 cursor-pointer transition-all ${
+                        !isStep3Completed 
+                          ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed' 
+                          : 'bg-white border border-gray-300 hover:border-indigo-500 text-textPrimary'
+                      }`}
                     >
-                      <Plus className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>{selectedClaim.step4Completed ? 'Update Assessment Record' : '+ Record Assessment Update'}</span>
+                      {!isStep3Completed ? <Lock className="w-3.5 h-3.5 text-gray-400" /> : <Plus className="w-3.5 h-3.5 text-indigo-600" />}
+                      <span>{isStep4Completed ? 'Update Assessment Record' : '+ Record Assessment Update'}</span>
                     </button>
+                    {!isStep3Completed && (
+                      <span className="text-[10px] text-amber-800 block font-semibold mt-1">
+                        🔒 Complete Step 3 (Official Loss Intimation Reference) first.
+                      </span>
+                    )}
                   </div>
 
                   {/* STEP 5: Claim Decision */}
                   <div className={`p-4 rounded-2xl border space-y-2 ${
-                    selectedClaim.step5Completed ? 'border-green-200 bg-green-50/30' : 'border-gray-200 bg-gray-50/50'
+                    isStep5Completed ? 'border-green-200 bg-green-50/30' : 'border-gray-200 bg-gray-50/50'
                   }`}>
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-textPrimary text-xs flex items-center gap-1.5">
-                        {selectedClaim.step5Completed ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Clock className="w-4 h-4 text-gray-400" />}
+                        {isStep5Completed ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Clock className="w-4 h-4 text-gray-400" />}
                         5. Official Claim Decision
                       </span>
                       <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
-                        selectedClaim.step5Completed ? 'bg-sky-100 text-sky-800' : 'bg-gray-100 text-gray-700'
+                        isStep5Completed ? 'bg-sky-100 text-sky-800' : 'bg-gray-100 text-gray-700'
                       }`}>
-                        {selectedClaim.step5Completed ? '🔵 FARMER REPORTED' : '○ PENDING'}
+                        {isStep5Completed ? '🔵 FARMER REPORTED' : '○ PENDING'}
                       </span>
                     </div>
                     {selectedClaim.farmerReportedAmount && (
@@ -664,27 +691,36 @@ export default function ClaimTracker() {
                     )}
                     <button
                       type="button"
-                      onClick={() => setActiveModalStep(5)}
-                      className="px-3.5 py-1.5 bg-white border border-gray-300 hover:border-indigo-500 text-textPrimary font-bold text-xs rounded-xl shadow-2xs cursor-pointer flex items-center gap-1"
+                      onClick={() => handleOpenModal(5)}
+                      className={`px-3.5 py-1.5 font-bold text-xs rounded-xl shadow-2xs flex items-center gap-1 cursor-pointer transition-all ${
+                        !isStep4Completed 
+                          ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed' 
+                          : 'bg-white border border-gray-300 hover:border-indigo-500 text-textPrimary'
+                      }`}
                     >
-                      <Plus className="w-3.5 h-3.5 text-indigo-600" />
-                      <span>{selectedClaim.step5Completed ? 'Update Decision Record' : '+ Record Claim Decision'}</span>
+                      {!isStep4Completed ? <Lock className="w-3.5 h-3.5 text-gray-400" /> : <Plus className="w-3.5 h-3.5 text-indigo-600" />}
+                      <span>{isStep5Completed ? 'Update Decision Record' : '+ Record Claim Decision'}</span>
                     </button>
+                    {!isStep4Completed && (
+                      <span className="text-[10px] text-amber-800 block font-semibold mt-1">
+                        🔒 Complete Step 4 (Assessment Update) first before recording a decision.
+                      </span>
+                    )}
                   </div>
 
                   {/* STEP 6: Payment via Direct Benefit Transfer */}
                   <div className={`p-4 rounded-2xl border space-y-2 ${
-                    selectedClaim.step6Completed ? 'border-green-200 bg-green-50/30' : 'border-gray-200 bg-gray-50/50'
+                    isStep6Completed ? 'border-green-200 bg-green-50/30' : 'border-gray-200 bg-gray-50/50'
                   }`}>
                     <div className="flex items-center justify-between">
                       <span className="font-bold text-textPrimary text-xs flex items-center gap-1.5">
-                        {selectedClaim.step6Completed ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Clock className="w-4 h-4 text-gray-400" />}
+                        {isStep6Completed ? <CheckCircle2 className="w-4 h-4 text-green-600" /> : <Clock className="w-4 h-4 text-gray-400" />}
                         6. Payment via Direct Benefit Transfer (DBT)
                       </span>
                       <span className={`text-[9px] font-extrabold px-2 py-0.5 rounded-full ${
-                        selectedClaim.step6Completed ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700'
+                        isStep6Completed ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-700'
                       }`}>
-                        {selectedClaim.step6Completed ? '🔵 FARMER REPORTED PAYMENT' : '○ PENDING'}
+                        {isStep6Completed ? '🔵 FARMER REPORTED PAYMENT' : '○ PENDING'}
                       </span>
                     </div>
                     {selectedClaim.farmerReportedPaymentAmount && (
@@ -694,12 +730,21 @@ export default function ClaimTracker() {
                     )}
                     <button
                       type="button"
-                      onClick={() => setActiveModalStep(6)}
-                      className="px-3.5 py-1.5 bg-white border border-gray-300 hover:border-emerald-500 text-textPrimary font-bold text-xs rounded-xl shadow-2xs cursor-pointer flex items-center gap-1"
+                      onClick={() => handleOpenModal(6)}
+                      className={`px-3.5 py-1.5 font-bold text-xs rounded-xl shadow-2xs flex items-center gap-1 cursor-pointer transition-all ${
+                        !isStep5Completed 
+                          ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed' 
+                          : 'bg-white border border-gray-300 hover:border-emerald-500 text-textPrimary'
+                      }`}
                     >
-                      <CreditCard className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>{selectedClaim.step6Completed ? 'Update Payment Record' : '+ Record Payment Update'}</span>
+                      {!isStep5Completed ? <Lock className="w-3.5 h-3.5 text-gray-400" /> : <CreditCard className="w-3.5 h-3.5 text-emerald-600" />}
+                      <span>{isStep6Completed ? 'Update Payment Record' : '+ Record Payment Update'}</span>
                     </button>
+                    {!isStep5Completed && (
+                      <span className="text-[10px] text-amber-800 block font-semibold mt-1">
+                        🔒 Complete Step 5 (Official Claim Decision) first before recording payment.
+                      </span>
+                    )}
                   </div>
                 </div>
               </div>
