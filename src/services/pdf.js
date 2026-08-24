@@ -680,18 +680,18 @@ export function generateCropLossIntimationPDF(claimData) {
   doc.setFillColor(...primaryColor);
   doc.rect(0, 0, 210, 26, 'F');
   doc.setTextColor(255, 255, 255);
-  doc.setFontSize(15);
+  doc.setFontSize(13);
   doc.setFont('helvetica', 'bold');
-  doc.text('KisanSaathi — Crop Loss Intimation & Evidence Packet', 15, 13);
-  doc.setFontSize(8);
+  doc.text('KisanSaathi — Crop Loss Intimation Packet', 15, 12);
+  doc.setFontSize(7.5);
   doc.setFont('helvetica', 'normal');
-  doc.text('Assisted Loss Intimation & Survey Dossier for Insurer / Krishi Rakshak (14447)', 15, 20);
+  doc.text('Assisted Loss Intimation & Survey Dossier for Insurer / Krishi Rakshak (14447)', 15, 19);
 
-  doc.setFontSize(8);
+  doc.setFontSize(7.5);
   doc.setFont('helvetica', 'bold');
-  doc.text(`Internal Ref: ${internalId}`, 195, 12, { align: 'right' });
+  doc.text(`Ref: ${internalId}`, 195, 11, { align: 'right' });
   doc.setFont('helvetica', 'normal');
-  doc.text(`Date: ${currentDate}`, 195, 19, { align: 'right' });
+  doc.text(`Date: ${currentDate}`, 195, 18, { align: 'right' });
 
   // Status Banner
   doc.setFillColor(254, 243, 199);
@@ -738,10 +738,12 @@ export function generateCropLossIntimationPDF(claimData) {
   doc.text('2. Reported Crop Loss Event Details', 15, py + 8);
   doc.line(15, py + 10, 195, py + 10);
 
+  const cleanAffected = String(claimData.affectedArea || '2.2').replace(/acres/gi, '').trim();
+
   let ly = py + 18;
   ly += drawRow('Reported Peril / Event:', claimData.eventType || 'Flood & Inundation', ly);
   ly += drawRow('Date & Time of Loss:', `${claimData.eventDate || currentDate} ${claimData.eventTime || ''}`, ly);
-  ly += drawRow('Affected Acreage:', `${claimData.affectedArea || '2.2'} Acres (Insured: ${claimData.insuredArea || '2.2 Acres'})`, ly);
+  ly += drawRow('Affected Acreage:', `${cleanAffected} Acres (Insured: ${claimData.insuredArea || '2.2 Acres'})`, ly);
   ly += drawRow('Land Survey / Khasra No:', claimData.khasraNo || '18/2 (2-0)', ly);
   ly += drawRow('Location GPS Captured:', claimData.gpsCoords ? `Lat: ${claimData.gpsCoords.lat.toFixed(4)}, Lng: ${claimData.gpsCoords.lng.toFixed(4)}` : 'GPS Not Captured', ly);
 
