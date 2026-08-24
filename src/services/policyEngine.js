@@ -2,7 +2,7 @@
  * KisanSaathi Crop Insurance Policy Engine
  * Contains structured policy definitions for Government & Private Crop Insurance,
  * historical policy reference registry, eligibility evaluator, requirement schemas,
- * application status states, and dynamic rate engine.
+ * application status states, claim types, peril lists, and dynamic rate engine.
  */
 
 export const GOVERNMENT_POLICIES = [
@@ -25,7 +25,7 @@ export const GOVERNMENT_POLICIES = [
     ],
     notified_states: ["Punjab", "Haryana", "Uttar Pradesh", "Madhya Pradesh", "Rajasthan", "Maharashtra", "Andhra Pradesh", "Telangana", "Karnataka"],
     notified_crops: ["Wheat", "Paddy/Rice", "Maize", "Cotton", "Sugarcane", "Mustard", "Pulses", "Vegetables"],
-    base_rate_pct: 1.5, // 1.5% for Food/Oilseeds, 2.0% for Kharif, 5% for Cotton
+    base_rate_pct: 1.5,
     value_per_acre: 24000,
     enrollment_deadline: "31/07/2026",
     implementing_insurer: "AIC / Agriculture Insurance Company of India",
@@ -226,6 +226,71 @@ export const APPLICATION_STATUSES = {
   POLICY_ISSUED: { label: "OFFICIAL POLICY ISSUED", color: "teal" }
 };
 
+export const CLAIM_TYPES = [
+  { id: 'localized_calamity', label: 'A. Localized Calamity / Individual Farm Loss', reporting_window_hours: 72, requires_parcels: true },
+  { id: 'post_harvest', label: 'B. Post-Harvest Drying Loss (Up to 14 days after harvest)', reporting_window_hours: 72, requires_parcels: true },
+  { id: 'widespread_yield', label: 'C. Widespread / End-of-Season Yield Loss (CCE Based)', reporting_window_hours: null, requires_parcels: false }
+];
+
+export const CLAIM_PERILS = {
+  PMFBY: [
+    "Flood & Inundation",
+    "Hailstorm",
+    "Landslide",
+    "Cyclone & Storm",
+    "Excess Rainfall & Waterlogging",
+    "Severe Pest / Disease Outbreak",
+    "Unseasonal Drying Rain",
+    "Drought & Dry Spells"
+  ],
+  RWBCIS: [
+    "Deficient / Deficit Rainfall Index",
+    "Excess Rainfall & Inundation Index",
+    "Unseasonal Heatwave / High Temp",
+    "Severe Relative Humidity Deviation",
+    "High Wind Speed Threshold"
+  ],
+  KSHEMA_PRAKRITI: [
+    "Localized Torrential Flood",
+    "Unseasonal Hailstorm",
+    "Pest Outbreak Threshold Exceeded",
+    "Wild Animal Intrusion Damage"
+  ],
+  KSHEMA_SUKRITI: [
+    "Targeted Heatwave Damage",
+    "Specific Disease Outbreak",
+    "Unseasonal Frost & Cold Wave"
+  ],
+  KSHEMA_SAMRIDDHI: [
+    "Localized Crop Inundation",
+    "Storm & Wind Damage",
+    "Pre-Harvest Standing Crop Loss"
+  ]
+};
+
+export const POLICY_CHANNELS = {
+  PMFBY: [
+    { name: "Krishi Rakshak Helpline & Portal", contact: "14447 / pmfby.gov.in", type: "Official Helpline" },
+    { name: "NCIP Official Portal / Crop Insurance App", contact: "pmfby.gov.in", type: "Digital Portal" },
+    { name: "Home Bank Branch", contact: "Lending / Savings Branch", type: "Bank Channel" },
+    { name: "District Agriculture Office", contact: "Block Agri Officer", type: "Government Channel" }
+  ],
+  RWBCIS: [
+    { name: "State Weather Insurance Cell & Portal", contact: "pmfby.gov.in / State Portal", type: "Weather Board" },
+    { name: "District Weather Monitoring Center", contact: "Krishi Vigyan Kendra", type: "KVK Center" }
+  ],
+  KSHEMA_PRAKRITI: [
+    { name: "Kshema Direct Claims Helpline", contact: "1800-KSHEMA-CARE / kshema.co", type: "Insurer Direct" },
+    { name: "Kshema Mobile App Claims Portal", contact: "kshema.co", type: "App Channel" }
+  ],
+  KSHEMA_SUKRITI: [
+    { name: "Kshema Direct Claims Helpline", contact: "1800-KSHEMA-CARE / kshema.co", type: "Insurer Direct" }
+  ],
+  KSHEMA_SAMRIDDHI: [
+    { name: "Kshema Micro-Claims Desk", contact: "1800-KSHEMA-CARE / kshema.co", type: "Micro Insurance" }
+  ]
+};
+
 /**
  * Policy Eligibility Evaluator
  * Evaluates farmer profile against scheme notifications
@@ -254,7 +319,6 @@ export function evaluatePolicyEligibility(policy, farmerProfile) {
 
   let isApplicable = isStateSupported && isCropSupported;
 
-  // Smallholder restriction check for Kshema Samriddhi
   if (policy.id === 'KSHEMA_SAMRIDDHI' && acres > 5.0) {
     isApplicable = false;
   }

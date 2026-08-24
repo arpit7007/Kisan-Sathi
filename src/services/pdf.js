@@ -660,3 +660,127 @@ export function generateSubmissionReceiptPDF(submissionData) {
 
   doc.save(`${refId}_Submission_Receipt.pdf`);
 }
+
+/**
+ * Generates an official CROP LOSS INTIMATION & EVIDENCE PACKET PDF
+ * @param {Object} claimData Complete claim details, evidence, and AI advisory results
+ */
+export function generateCropLossIntimationPDF(claimData) {
+  const doc = new jsPDF();
+  const internalId = claimData.internalReportId || 'KS-LOSS-' + Date.now();
+  const officialId = claimData.officialClaimId || 'NOT_SUBMITTED_YET';
+  const currentDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  const primaryColor = [22, 163, 74];
+  const textColor = [20, 83, 45];
+  const borderGray = [226, 232, 240];
+  const amberColor = [217, 119, 6];
+
+  // Header Banner
+  doc.setFillColor(...primaryColor);
+  doc.rect(0, 0, 210, 26, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(15);
+  doc.setFont('helvetica', 'bold');
+  doc.text('KisanSaathi — Crop Loss Intimation & Evidence Packet', 15, 13);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text('Assisted Loss Intimation & Survey Dossier for Insurer / Krishi Rakshak (14447)', 15, 20);
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Internal Ref: ${internalId}`, 195, 12, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Date: ${currentDate}`, 195, 19, { align: 'right' });
+
+  // Status Banner
+  doc.setFillColor(254, 243, 199);
+  doc.rect(15, 32, 180, 12, 'F');
+  doc.setDrawColor(...amberColor);
+  doc.rect(15, 32, 180, 12, 'S');
+  doc.setTextColor(180, 83, 9);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`STATUS: ${claimData.officialClaimId ? 'OFFICIALLY INTIMATED TO INSURER' : 'LOSS REPORT CREATED — READY FOR INTIMATION'}`, 20, 39.5);
+
+  const drawRow = (label, val, y, labelWidth = 65) => {
+    doc.setFontSize(8.5);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'bold');
+    doc.text(String(label), 20, y);
+    doc.setFont('helvetica', 'normal');
+    const valX = 20 + labelWidth;
+    const lines = doc.splitTextToSize(String(val || 'N/A'), 192 - valX);
+    doc.text(lines, valX, y);
+    return Math.max(6, lines.length * 4.5);
+  };
+
+  // Section 1: Farmer & Policy Details
+  doc.setFontSize(11);
+  doc.setTextColor(...textColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('1. Insured Farmer & Policy Verification', 15, 52);
+  doc.setDrawColor(...primaryColor);
+  doc.line(15, 54, 195, 54);
+
+  let py = 62;
+  py += drawRow('Farmer Name:', claimData.farmerName || 'Bhushan Diwakar', py);
+  py += drawRow('Aadhaar Number (Masked):', claimData.aadhaarMasked || 'XXXX XXXX 6032', py);
+  py += drawRow('Policy Scheme & ID:', `${claimData.policyScheme || 'PMFBY'} (${claimData.policyId || 'PMF-2026-8912'})`, py);
+  py += drawRow('Insured Crop:', claimData.policyCrop || 'Maize', py);
+  py += drawRow('Insured Land & Acreage:', `${claimData.khasraNo || '18/2 (2-0)'} (${claimData.insuredArea || '2.2 Acres'})`, py);
+  py += drawRow('Implementing Insurer:', claimData.insurer || 'AIC / Agriculture Insurance Company of India', py);
+
+  // Section 2: Loss Event Details
+  doc.setFontSize(11);
+  doc.setTextColor(...textColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('2. Reported Crop Loss Event Details', 15, py + 8);
+  doc.line(15, py + 10, 195, py + 10);
+
+  let ly = py + 18;
+  ly += drawRow('Reported Peril / Event:', claimData.eventType || 'Flood & Inundation', ly);
+  ly += drawRow('Date & Time of Loss:', `${claimData.eventDate || currentDate} ${claimData.eventTime || ''}`, ly);
+  ly += drawRow('Affected Acreage:', `${claimData.affectedArea || '2.2'} Acres (Insured: ${claimData.insuredArea || '2.2 Acres'})`, ly);
+  ly += drawRow('Land Survey / Khasra No:', claimData.khasraNo || '18/2 (2-0)', ly);
+  ly += drawRow('Location GPS Captured:', claimData.gpsCoords ? `Lat: ${claimData.gpsCoords.lat.toFixed(4)}, Lng: ${claimData.gpsCoords.lng.toFixed(4)}` : 'GPS Not Captured', ly);
+
+  // Section 3: AI Evidence Analysis (Advisory)
+  doc.setFontSize(11);
+  doc.setTextColor(...textColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('3. AI-Assisted Evidence Analysis (Advisory Only)', 15, ly + 8);
+  doc.line(15, ly + 10, 195, ly + 10);
+
+  let ay = ly + 18;
+  ay += drawRow('AI Detected Crop:', claimData.aiCrop || claimData.policyCrop || 'Maize', ay);
+  ay += drawRow('AI Detected Damage:', claimData.aiDamage || claimData.eventType || 'Flood & Inundation', ay);
+  ay += drawRow('AI Confidence Score:', `${Math.round((claimData.aiConfidence || 0.91) * 100)}%`, ay);
+  ay += drawRow('Advisory Note:', 'AI evidence analysis is supporting proof only. Final loss percentage and claim decision are determined by the insurer.', ay);
+
+  // Section 4: Declaration & Helpline Information
+  doc.setFontSize(11);
+  doc.setTextColor(...textColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('4. Farmer Declaration & Official Reporting Routes', 15, ay + 8);
+  doc.line(15, ay + 10, 195, ay + 10);
+
+  let dy = ay + 18;
+  const declMsg = "I hereby declare that the crop loss details and evidence uploaded are accurate. I authorize KisanSaathi to assist in compiling this loss intimation dossier.";
+  doc.setFontSize(8);
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
+  doc.text(doc.splitTextToSize(declMsg, 175), 20, dy);
+
+  doc.setFont('helvetica', 'bold');
+  doc.text('Official PMFBY Krishi Rakshak Loss Intimation Helpline: 14447 | Official Portal: pmfby.gov.in', 20, dy + 15);
+
+  doc.setFontSize(7);
+  doc.setTextColor(100, 116, 139);
+  doc.setFont('helvetica', 'italic');
+  doc.text('KisanSaathi provides loss intimation preparation assistance. Official claim intimation ID is issued upon submission to 14447 or NCIP.', 105, 283, { align: 'center' });
+
+  doc.save(`${internalId}_Loss_Intimation.pdf`);
+  return internalId;
+}
+
