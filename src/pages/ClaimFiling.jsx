@@ -13,11 +13,13 @@ const DAMAGE_TYPES = [
 ];
 
 const POLICIES = [
-  { id: "PMFBY", name: "PMFBY" },
-  { id: "RWBCIS", name: "RWBCIS" },
-  { id: "UPIS", name: "UPIS" },
-  { id: "Kshema", name: "Kshema Private Insurance" },
-  { id: "None", name: "None" }
+  { id: "PMFBY", name: "PMFBY (Pradhan Mantri Fasal Bima Yojana)" },
+  { id: "RWBCIS", name: "RWBCIS (Restructured Weather Based Scheme)" },
+  { id: "KSHEMA_PRAKRITI", name: "Kshema Prakriti Private Insurance" },
+  { id: "KSHEMA_SUKRITI", name: "Kshema Sukriti Private Insurance" },
+  { id: "KSHEMA_SAMRIDDHI", name: "Kshema Samriddhi Private Insurance" },
+  { id: "UPIS", name: "UPIS (Historical Reference)" },
+  { id: "None", name: "None / Uninsured" }
 ];
 
 export default function ClaimFiling() {
