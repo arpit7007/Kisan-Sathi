@@ -86,10 +86,11 @@ export default function Enroll() {
   const [selectedMinorPeril, setSelectedMinorPeril] = useState('Wild Animal Intrusion / Lightning');
   const [sowingCertificateAttached, setSowingCertificateAttached] = useState(true);
 
-  // PDF Generation State
+  // PDF Generation & UI Tabs State
   const [pdfRefId, setPdfRefId] = useState('');
   const [isPdfGenerating, setIsPdfGenerating] = useState(false);
   const [isPdfComplete, setIsPdfComplete] = useState(false);
+  const [activeMethodTab, setActiveMethodTab] = useState('csc');
 
   // Official Submission Tracking State
   const [submissionForm, setSubmissionForm] = useState({
