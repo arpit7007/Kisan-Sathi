@@ -100,16 +100,15 @@ export default function Dashboard() {
     if (month >= 10 || month <= 2) season = "Rabi"; // November-March
     else if (month >= 3 && month <= 5) season = "Zaid"; // April-June
 
-    const prompt = `You are an agricultural risk analyst for Punjab, India.
-Farmer profile: District=${farmerProf.district}, Crop=${farmerProf.primaryCrop}, Land=${farmerProf.landSize} acres, Season=${season}.
-Weather forecast next 14 days: ${JSON.stringify(weatherData?.daily || {})}
-Historical pest outbreaks in Punjab Malwa belt:
-- Cotton: Whitefly (July-Sept), Pink bollworm (Aug-Oct)
-- Wheat: Yellow rust (Feb-March), Powdery mildew (Dec-Feb)  
-- Rice: Brown planthopper (Aug-Sept), Blast disease (July-Aug)
-- Groundwater stress: critical in Mansa, Bathinda, Muktsar districts
+    const prompt = `You are an expert agricultural scientist and crop risk analyst for Punjab, India.
+Farmer profile: District=${farmerProf.district}, Primary Crop=${farmerProf.primaryCrop}, Land=${farmerProf.landSize} acres, Season=${season}.
+14-day Weather Forecast: ${JSON.stringify(weatherData?.daily || {})}
 
-Respond ONLY in JSON format:
+IMPORTANT INSTRUCTION FOR "sowingAdvice":
+- DO NOT return "N/A", "Not Applicable", or generic phrases like "Focus on nutrient management".
+- Provide 2-3 sentences of highly specific, practical crop care, irrigation schedule, pest management, and growth advisories for ${farmerProf.primaryCrop} in ${farmerProf.district} for this weather period.
+
+Respond ONLY in valid JSON format:
 {
   "overallRisk": "low"|"medium"|"high"|"critical",
   "riskScore": number,
@@ -119,7 +118,7 @@ Respond ONLY in JSON format:
   "weeklyAlerts": [
     { "week": "string", "alert": "string" }  
   ],
-  "sowingAdvice": "string",
+  "sowingAdvice": "string (practical crop-specific care & protection advice for ${farmerProf.primaryCrop})",
   "summary": "string"
 }`;
 
@@ -146,20 +145,95 @@ Respond ONLY in JSON format:
 
   const getFallbackRisk = (crop, district) => {
     const isCotton = crop === 'Cotton';
-    return {
-      overallRisk: isCotton ? 'high' : 'medium',
-      riskScore: isCotton ? 82 : 45,
-      topThreats: [
-        { threat: 'Pest Outbreak (Whitefly)', probability: '80%', description: 'Increased threat of whitefly due to elevated relative humidity levels.' },
+    const isWheat = crop === 'Wheat';
+    const isRice = crop === 'Rice/Paddy' || crop === 'Rice';
+    const isMaize = crop === 'Maize';
+    const isSugarcane = crop === 'Sugarcane';
+    const isPotato = crop === 'Potato';
+
+    let cropAdvice = `Inspect ${crop} fields twice weekly for pest activity. Ensure proper soil moisture and balanced nitrogen application.`;
+    let cropThreats = [
+      { threat: 'Unseasonal Weather Anomaly', probability: '55%', description: 'Unpredictable temperature fluctuations detected in local forecast.' },
+      { threat: 'Soil Moisture Imbalance', probability: '45%', description: 'Monitor irrigation schedule to prevent stress during active growth.' }
+    ];
+    let cropAlert = `Inspect ${crop} leaves weekly for early signs of disease or pest infestation.`;
+    let cropSummary = `Monitoring ${crop} crop conditions in ${district}. Recommendations updated for current weather.`;
+
+    if (isCotton) {
+      cropAdvice = language === 'pa'
+        ? "ਪੱਤਿਆਂ ਦੇ ਹੇਠਲੇ ਪਾਸੇ ਚਿੱਟੀ ਮੱਖੀ ਅਤੇ ਗੁਲਾਬੀ ਸੁੰਡੀ ਦੀ ਜਾਂਚ ਕਰੋ। ਬਾਰਿਸ਼ ਤੋਂ ਬਾਅਦ ਪਾਣੀ ਦੀ ਨਿਕਾਸੀ ਯਕੀਨੀ ਬਣਾਓ ਅਤੇ ਲੋੜ ਪੈਣ ਤੇ ਨੀਮ ਤੇਲ ਦੀ ਸਪਰੇਅ ਕਰੋ।"
+        : "Inspect under-leaves for Whitefly & Pink Bollworm. Ensure field drainage after rains to prevent root rot; spray neem oil if pest counts cross 6 per leaf.";
+      cropThreats = [
+        { threat: 'Whitefly Infestation (ਚਿੱਟੀ ਮੱਖੀ)', probability: '80%', description: 'High humidity levels increase risk of whitefly multiplication in cotton.' },
         { threat: 'Groundwater Stress', probability: '65%', description: 'Critical water depletion warnings recorded in the district.' }
-      ],
+      ];
+      cropAlert = 'Apply recommended bio-pesticide spray if pest counts exceed threshold.';
+      cropSummary = language === 'pa'
+        ? "ਇਸ ਸਮੇਂ ਕਪਾਹ ਦੀ ਫਸਲ 'ਤੇ ਚਿੱਟੀ ਮੱਖੀ ਦੇ ਵਧਣ ਦਾ ਜੋਖਮ ਉੱਚਾ ਹੈ।"
+        : "Moderate to high risks detected for Cotton. Weekly inspection of lower leaves is highly recommended.";
+    } else if (isWheat) {
+      cropAdvice = language === 'pa'
+        ? "ਪੀਲੀ ਕੁੰਗੀ (Yellow Rust) ਦੇ ਲੱਛਣਾਂ ਲਈ ਪੱਤਿਆਂ ਦੀ ਜਾਂਚ ਕਰੋ। ਬਿਜਾਈ ਦੇ 21 ਦਿਨਾਂ ਬਾਅਦ ਹਲਕੀ ਸਿੰਚਾਈ ਕਰੋ ਅਤੇ ਯੂਰੀਆ ਦੀ ਪਹਿਲੀ ਕਿਸ਼ਤ ਦਿਓ।"
+        : "Check leaves for Yellow Rust (yellow powder spots). Schedule light irrigation at Crown Root Initiation (CRI) stage and top-dress urea post watering.";
+      cropThreats = [
+        { threat: 'Yellow Rust Warning (ਪੀਲੀ ਕੁੰਗੀ)', probability: '40%', description: 'Morning fog and cool temperatures favor yellow rust fungal spores.' },
+        { threat: 'Aphids Attack (ਤੇਲਾ)', probability: '35%', description: 'Check ears and top leaves for aphid clusters during warm afternoons.' }
+      ];
+      cropAlert = 'Spray recommended Propiconazole 25 EC if yellow rust spots appear on foliage.';
+      cropSummary = language === 'pa'
+        ? "ਕਣਕ ਦੀ ਫਸਲ ਲਈ ਮੌਸਮ ਅਨੁਕੂਲ ਹੈ। ਪੀਲੀ ਕੁੰਗੀ ਦੀ ਨਿਗਰਾਨੀ ਰੱਖੋ।"
+        : "Favorable conditions for Wheat growth. Keep vigilant watch for yellow rust symptoms.";
+    } else if (isRice) {
+      cropAdvice = language === 'pa'
+        ? "ਖੇਤ ਵਿੱਚ 2-5 ਸੈਂਟੀਮੀਟਰ ਪਾਣੀ ਖੜ੍ਹਾ ਰੱਖੋ। ਬੂਟਿਆਂ ਦੇ ਮੁੱਢਾਂ 'ਚ ਝੁਲਸ ਰੋਗ ਅਤੇ ਕਾਲੇ ਤੇਲੇ (BPH) ਦੀ ਜਾਂਚ ਕਰੋ।"
+        : "Maintain 2-5 cm standing water during panicle stage. Inspect plant bases for Brown Planthopper (BPH) and manage drainage to control root rot.";
+      cropThreats = [
+        { threat: 'Brown Planthopper (BPH / ਕਾਲਾ ਤੇਲਾ)', probability: '60%', description: 'Humid conditions at base of dense paddy canopy favor BPH.' },
+        { threat: 'Blast Disease (ਝੁਲਸ ਰੋਗ)', probability: '45%', description: 'High night humidity increases leaf blast infection risk.' }
+      ];
+      cropAlert = 'Drain water for 2-3 days if BPH count exceeds 10 per hill.';
+      cropSummary = language === 'pa'
+        ? "ਝੋਨੇ ਦੀ ਫਸਲ ਲਈ ਪਾਣੀ ਦਾ ਪ੍ਰਬੰਧਨ ਅਤੇ ਤੇਲੇ ਤੋਂ ਬਚਾਅ ਜ਼ਰੂਰੀ ਹੈ।"
+        : "Active monitoring advised for Paddy. Ensure proper water management to prevent BPH.";
+    } else if (isMaize) {
+      cropAdvice = language === 'pa'
+        ? "ਮੱਕੀ ਦੀ ਫਸਲ ਵਿੱਚ ਫਾਲ ਆਰਮੀਵਰਮ (FAW) ਦੀ ਜਾਂਚ ਕਰੋ। ਗੋਡੇ-ਗੋਡੇ ਫਸਲ ਹੋਣ 'ਤੇ ਨਾਈਟ੍ਰੋਜਨ ਦੀ ਖੁਰਾਕ ਦਿਓ ਅਤੇ ਖੇਤ ਵਿੱਚ ਪਾਣੀ ਨਾ ਖੜ੍ਹਨ ਦਿਓ।"
+        : "Monitor whorls for Fall Armyworm (FAW) damage. Apply nitrogen top-dressing at knee-high stage and ensure field drainage.";
+      cropThreats = [
+        { threat: 'Fall Armyworm (FAW)', probability: '50%', description: 'Larvae feed inside central whorl causing leaf perforations.' },
+        { threat: 'Waterlogging Stress', probability: '40%', description: 'Excess water stunts maize root growth.' }
+      ];
+      cropAlert = 'Drop neem cake or recommended granule in affected whorls for FAW control.';
+    } else if (isSugarcane) {
+      cropAdvice = language === 'pa'
+        ? "ਤੇਜ਼ ਹਵਾਵਾਂ ਤੋਂ ਫਸਲ ਨੂੰ ਡਿੱਗਣ ਤੋਂ ਬਚਾਉਣ ਲਈ ਮਿੱਟੀ ਚਾੜ੍ਹੋ। 10-12 ਦਿਨਾਂ ਦੇ ਅੰਤਰਾਲ 'ਤੇ ਸਿੰਚਾਈ ਕਰੋ।"
+        : "Perform earthing-up to prevent sugarcane lodging during strong winds. Irrigate at 10-12 day intervals and monitor for shoot borer.";
+      cropThreats = [
+        { threat: 'Top Shoot Borer', probability: '45%', description: 'Borer larvae damage growing point leading to dead hearts.' },
+        { threat: 'Lodging Risk', probability: '35%', description: 'High wind speeds may cause tall cane stalks to fall.' }
+      ];
+      cropAlert = 'Tie sugarcane clumps together (propping) to prevent wind lodging.';
+    } else if (isPotato) {
+      cropAdvice = language === 'pa'
+        ? "ਆਲੂਆਂ ਨੂੰ ਧੁੱਪ ਤੋਂ ਬਚਾਉਣ ਲਈ ਵੱਟਾਂ 'ਤੇ ਮਿੱਟੀ ਚੰਗੀ ਤਰ੍ਹਾਂ ਚਾੜ੍ਹੋ। ਧੁੰਦ ਵਾਲੇ ਦਿਨਾਂ ਵਿੱਚ ਅਗੇਤੇ/ਪਛੇਤੇ ਝੁਲਸ ਰੋਗ ਦੀ ਨਿਗਰਾਨੀ ਕਰੋ।"
+        : "Earth up ridges properly to prevent tuber greening. Inspect foliage for Late Blight lesions during foggy high-humidity mornings.";
+      cropThreats = [
+        { threat: 'Late Blight (ਅਗੇਤਾ/ਪਛੇਤਾ ਝੁਲਸ)', probability: '55%', description: 'High humidity and overcast conditions accelerate blight spread.' },
+        { threat: 'Tuber Exposure', probability: '30%', description: 'Uncovered tubers exposed to light turn green and unmarketable.' }
+      ];
+      cropAlert = 'Spray Mancozeb at first sign of water-soaked spots on lower leaves.';
+    }
+
+    return {
+      overallRisk: isCotton ? 'high' : (isRice || isPotato ? 'medium' : 'low'),
+      riskScore: isCotton ? 82 : (isRice || isPotato ? 62 : 45),
+      topThreats: cropThreats,
       weeklyAlerts: [
-        { week: 'Week 1', alert: 'Apply bio-pesticide spray if pest counts exceed 6 per leaf.' }
+        { week: 'Week 1', alert: cropAlert },
+        { week: 'Week 2', alert: 'Re-inspect fields after expected rainfall; adjust fertilizer top-dressing accordingly.' }
       ],
-      sowingAdvice: 'Check soil moisture before secondary watering. Use micro-sprinklers if possible.',
-      summary: language === 'pa' 
-        ? "ਇਸ ਸਮੇਂ ਚਿੱਟੀ ਮੱਖੀ ਦੇ ਕੀੜਿਆਂ ਦੇ ਵਧਣ ਦਾ ਜੋਖਮ ਉੱਚਾ ਹੈ।" 
-        : "Moderate to high risks detected. Weekly inspection of crops is highly recommended."
+      sowingAdvice: cropAdvice,
+      summary: cropSummary
     };
   };
 
