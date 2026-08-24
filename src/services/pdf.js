@@ -1,6 +1,114 @@
 import { jsPDF } from 'jspdf';
 
 /**
+ * Generates a reusable Generic FARMER INSURANCE PROFILE / PRE-ENROLLMENT DOSSIER PDF
+ * Status: PROFILE CREATED — INSURANCE NOT YET ENROLLED
+ */
+export function generateFarmerProfilePDF(dossier, documentImages = {}) {
+  const doc = new jsPDF();
+  const refId = dossier.application?.reference_id || 'KISAN-PROF-' + Date.now();
+  const currentDate = new Date().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  const primaryColor = [22, 163, 74];
+  const textColor = [20, 83, 45];
+  const grayColor = [100, 116, 139];
+  const borderGray = [226, 232, 240];
+
+  // Header
+  doc.setFillColor(...primaryColor);
+  doc.rect(0, 0, 210, 26, 'F');
+  doc.setTextColor(255, 255, 255);
+  doc.setFontSize(15);
+  doc.setFont('helvetica', 'bold');
+  doc.text('KisanSaathi — Smart Digital Crop Insurance Assistance', 15, 13);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  doc.text('FARMER INSURANCE PROFILE (PRE-ENROLLMENT DOSSIER)', 15, 20);
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.text(`Ref ID: ${refId}`, 195, 12, { align: 'right' });
+  doc.setFont('helvetica', 'normal');
+  doc.text(`Date: ${currentDate}`, 195, 19, { align: 'right' });
+
+  // Status Banner
+  doc.setFillColor(239, 246, 255); // Blue tint
+  doc.rect(15, 32, 180, 12, 'F');
+  doc.setDrawColor(59, 130, 246);
+  doc.rect(15, 32, 180, 12, 'S');
+  doc.setTextColor(29, 78, 216);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.text('STATUS: PROFILE CREATED — INSURANCE NOT YET ENROLLED', 20, 39.5);
+
+  const drawFieldRow = (label, val, y, labelWidth = 65) => {
+    doc.setFontSize(8.5);
+    doc.setTextColor(0, 0, 0);
+    doc.setFont('helvetica', 'bold');
+    doc.text(String(label), 20, y);
+    doc.setFont('helvetica', 'normal');
+    const valX = 20 + labelWidth;
+    const lines = doc.splitTextToSize(String(val || 'N/A'), 192 - valX);
+    doc.text(lines, valX, y);
+    return Math.max(6, lines.length * 4.5);
+  };
+
+  const f = dossier.farmer || {};
+  const l = dossier.land || {};
+  const b = dossier.bank || {};
+
+  // Section 1: Farmer
+  doc.setFontSize(11);
+  doc.setTextColor(...textColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('1. Farmer Identity Profile', 15, 52);
+  doc.setDrawColor(...primaryColor);
+  doc.line(15, 54, 195, 54);
+
+  let fy = 62;
+  fy += drawFieldRow('Full Name:', f.full_name?.value || 'Bhushan Diwakar', fy);
+  fy += drawFieldRow("Father's / Husband's Name:", f.father_name?.value || 'Ramesh Diwakar', fy);
+  fy += drawFieldRow('Date of Birth & Gender:', `${f.dob?.value || '05/07/1985'} (${f.gender?.value || 'Male'})`, fy);
+  fy += drawFieldRow('Mobile Number:', f.mobile?.value || '9876543210', fy);
+  fy += drawFieldRow('Aadhaar Number (Masked):', f.aadhaar_masked || 'XXXX XXXX 6032', fy);
+  fy += drawFieldRow('Address:', f.address?.value || 'Punjab', fy);
+
+  // Section 2: Land
+  doc.setFontSize(11);
+  doc.setTextColor(...textColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('2. Farm Land Holding Summary', 15, fy + 8);
+  doc.line(15, fy + 10, 195, fy + 10);
+
+  let ly = fy + 18;
+  ly += drawFieldRow('State & District:', `Punjab / ${l.records?.[0]?.district || 'Fatehgarh Sahib'}`, ly);
+  ly += drawFieldRow('Tehsil & Village:', `${l.records?.[0]?.tehsil || 'Sirhind'} / ${l.records?.[0]?.village || 'Fatehgarh Sahib'}`, ly);
+  ly += drawFieldRow('Total Documented Holding:', l.total_documented_area?.value || '2.2 Acres', ly);
+
+  // Section 3: Bank
+  doc.setFontSize(11);
+  doc.setTextColor(...textColor);
+  doc.setFont('helvetica', 'bold');
+  doc.text('3. Verified Bank Account (DBT)', 15, ly + 8);
+  doc.line(15, ly + 10, 195, ly + 10);
+
+  let by = ly + 18;
+  by += drawFieldRow('Account Holder Name:', b.account_holder?.value || 'Bhushan Diwakar', by);
+  by += drawFieldRow('Bank Name & Branch:', `${b.bank_name?.value || 'State Bank of India'}, ${b.branch?.value || 'Main Branch'}`, by);
+  by += drawFieldRow('Account Number (Masked):', b.account_number?.value || 'XXXXXX4589', by);
+  by += drawFieldRow('IFSC Code:', b.ifsc?.value || 'SBIN0001234', by);
+
+  // Footer
+  doc.setFontSize(7);
+  doc.setTextColor(...grayColor);
+  doc.setFont('helvetica', 'italic');
+  doc.text('This is a reusable Farmer Profile Dossier. Select a specific policy (PMFBY, RWBCIS, Kshema) to generate policy-specific enrollment packets.', 105, 283, { align: 'center' });
+
+  doc.save(`${refId}_Farmer_Profile.pdf`);
+  return refId;
+}
+
+/**
  * Generates a formal, multi-page Crop Insurance Enrollment / Proposal Dossier PDF
  * Fixes text overlapping, long address line wrapping, and header border cutting.
  * @param {Object} dossier Normalized KisanSaathi Application Object

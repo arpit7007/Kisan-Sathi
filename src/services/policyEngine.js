@@ -1,7 +1,8 @@
 /**
  * KisanSaathi Crop Insurance Policy Engine
  * Contains structured policy definitions for Government & Private Crop Insurance,
- * historical policy reference registry, eligibility evaluator, and dynamic rate engine.
+ * historical policy reference registry, eligibility evaluator, requirement schemas,
+ * application status states, and dynamic rate engine.
  */
 
 export const GOVERNMENT_POLICIES = [
@@ -170,6 +171,61 @@ export const HISTORICAL_POLICIES = [
   }
 ];
 
+export const POLICY_REQUIREMENTS = {
+  PMFBY: [
+    { key: 'aadhaar', label: 'Aadhaar Card Identity Proof', required: true },
+    { key: 'land_record', label: 'Jamabandi / Fard Land Ownership Record', required: true },
+    { key: 'bank_details', label: 'Bank Account Passbook for Direct Benefit Transfer', required: true },
+    { key: 'mobile', label: 'Verified Mobile Number for SMS & Claims Tracking', required: true },
+    { key: 'crop', label: 'Notified Sown Crop Confirmation', required: true },
+    { key: 'sowing_declaration', label: 'Self-Declaration Sowing Certificate / Patwari Proof', required: true }
+  ],
+  RWBCIS: [
+    { key: 'aadhaar', label: 'Aadhaar Card Identity Proof', required: true },
+    { key: 'land_record', label: 'Jamabandi / Fard Land Ownership Record', required: true },
+    { key: 'bank_details', label: 'Bank Passbook & IFSC Proof', required: true },
+    { key: 'mobile', label: 'Verified Mobile Number', required: true },
+    { key: 'crop', label: 'Weather-Index Notified Crop', required: true },
+    { key: 'weather_parameters', label: 'District Weather Station Parameter Binding', required: true }
+  ],
+  KSHEMA_PRAKRITI: [
+    { key: 'kyc', label: 'Farmer KYC (Aadhaar / ID Proof)', required: true },
+    { key: 'land_record', label: 'Jamabandi / Khasra Survey Record', required: true },
+    { key: 'farm_polygon', label: 'Farm Polygon Geo-Coordinates & Boundary Map', required: true },
+    { key: 'crop', label: 'High-Value Sown Crop Details', required: true },
+    { key: 'sowing_date', label: 'Verified Sowing Date', required: true },
+    { key: 'tenancy_certificate', label: 'Tenancy Agreement / Lease (if Tenant Farmer)', required: false }
+  ],
+  KSHEMA_SUKRITI: [
+    { key: 'kyc', label: 'Farmer KYC Proof', required: true },
+    { key: 'land_record', label: 'Jamabandi / Khasra Survey Record', required: true },
+    { key: 'farm_polygon', label: 'Farm Polygon Geo-Coordinates & Boundary Map', required: true },
+    { key: 'crop', label: 'Targeted Crop Selection', required: true },
+    { key: 'major_perils', label: 'Major Peril Selection (Flood / Inundation / Cyclone / Hailstorm)', required: true },
+    { key: 'minor_perils', label: 'Minor Peril Selection (Animal Attack / Lightning / Landslide)', required: true }
+  ],
+  KSHEMA_SAMRIDDHI: [
+    { key: 'kyc', label: 'Farmer KYC Proof', required: true },
+    { key: 'land_record', label: 'Smallholder Land Proof (< 5 Acres)', required: true },
+    { key: 'bank_details', label: 'Bank Account Details', required: true },
+    { key: 'crop', label: 'Sown Crop Declaration', required: true }
+  ]
+};
+
+export const APPLICATION_STATUSES = {
+  PROFILE_CREATED: { label: "PROFILE CREATED — INSURANCE NOT YET ENROLLED", color: "blue" },
+  INFORMATION_REQUIRED: { label: "INFORMATION REQUIRED", color: "amber" },
+  POLICY_SELECTED: { label: "POLICY SELECTED — REQUIREMENTS PENDING", color: "purple" },
+  POLICY_APPLICATION_IN_PROGRESS: { label: "APPLICATION IN PROGRESS", color: "indigo" },
+  READY_FOR_SUBMISSION: { label: "READY FOR AUTHORIZED SUBMISSION", color: "emerald" },
+  SUBMITTED: { label: "SUBMITTED TO NCIP / INSURER", color: "green" },
+  UNDER_REVIEW: { label: "UNDER ENROLLMENT AGENCY REVIEW", color: "sky" },
+  ACCEPTED: { label: "OFFICIALLY ACCEPTED", color: "green" },
+  CORRECTION_REQUIRED: { label: "CORRECTION REQUIRED", color: "rose" },
+  REJECTED: { label: "REJECTED BY INSURER", color: "red" },
+  POLICY_ISSUED: { label: "OFFICIAL POLICY ISSUED", color: "teal" }
+};
+
 /**
  * Policy Eligibility Evaluator
  * Evaluates farmer profile against scheme notifications
@@ -190,14 +246,19 @@ export function evaluatePolicyEligibility(policy, farmerProfile) {
 
   const farmerCrop = farmerProfile.primaryCrop || 'Cotton';
   const farmerDistrict = farmerProfile.district || 'Mansa';
-  const farmerState = 'Punjab'; // Default state in profile
+  const farmerState = 'Punjab';
   const acres = farmerProfile.landSize || 2.2;
 
   const isStateSupported = policy.notified_states.includes(farmerState);
   const isCropSupported = policy.notified_crops.includes(farmerCrop);
 
-  // Specific scheme logic
   let isApplicable = isStateSupported && isCropSupported;
+
+  // Smallholder restriction check for Kshema Samriddhi
+  if (policy.id === 'KSHEMA_SAMRIDDHI' && acres > 5.0) {
+    isApplicable = false;
+  }
+
   let status = isApplicable ? "applicable" : "verification_required";
   let badgeLabel = isApplicable ? "✓ Applicable to your crop" : "⚠ Availability requires verification";
   let badgeColor = isApplicable ? "green" : "amber";
@@ -215,7 +276,6 @@ export function evaluatePolicyEligibility(policy, farmerProfile) {
     reasons.push(`⚠ Notification for ${farmerCrop} in ${farmerDistrict} requires local agency confirmation.`);
   }
 
-  // Calculate dynamic verified figures if applicable
   let premiumText = "Calculated based on applicable notification";
   let coverageText = "Based on notified Sum Insured";
 
@@ -223,7 +283,7 @@ export function evaluatePolicyEligibility(policy, farmerProfile) {
     const totalSumInsured = acres * policy.value_per_acre;
     const premiumAmount = Math.round(totalSumInsured * (policy.base_rate_pct / 100));
 
-    premiumText = `₹${premiumAmount.toLocaleString('en-IN')} (Subsidized ${policy.base_rate_pct}%)`;
+    premiumText = `₹${premiumAmount.toLocaleString('en-IN')} (${policy.category === 'government' ? 'Subsidized ' : ''}${policy.base_rate_pct}%)`;
     coverageText = `₹${totalSumInsured.toLocaleString('en-IN')} (Notified Sum Insured)`;
   }
 
