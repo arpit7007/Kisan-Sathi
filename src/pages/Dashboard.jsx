@@ -70,7 +70,20 @@ export default function Dashboard() {
 
       // Load Claims
       getClaims(uid).then(data => {
-        setClaims(data || []);
+        let loaded = data || [];
+        const savedReportStr = localStorage.getItem('kisan_active_loss_report');
+        if (savedReportStr) {
+          try {
+            const saved = JSON.parse(savedReportStr);
+            if (saved && saved.internalReportId) {
+              const exists = loaded.some(c => (c.claimId || c.internalReportId) === saved.internalReportId);
+              if (!exists) {
+                loaded = [saved, ...loaded];
+              }
+            }
+          } catch (e) {}
+        }
+        setClaims(loaded);
       });
 
       // Load Weather Data
@@ -693,13 +706,25 @@ Respond ONLY in valid JSON format:
                       )}
                     </div>
                     
-                    <button
-                      onClick={() => navigate('/chat', { state: { query: `I filed a claim on ${formattedDate} for ${claim.crop} damage. What is the status of my claim ${claim.claimId}?` } })}
-                      className="w-full sm:w-auto px-4 py-2 border border-green-200 hover:border-primary-green hover:bg-green-50 text-primary-green font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all text-xs active:scale-95"
-                    >
-                      <MessageSquare className="w-3.5 h-3.5" />
-                      <span>{t('followUp')}</span>
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          localStorage.setItem('kisan_active_loss_report', JSON.stringify(claim));
+                          navigate('/claim');
+                        }}
+                        className="px-4 py-2 bg-primary-green hover:bg-green-700 text-white font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all text-xs cursor-pointer shadow-xs"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>View Loss Intimation Packet</span>
+                      </button>
+                      <button
+                        onClick={() => navigate('/chat', { state: { query: `I filed a claim on ${formattedDate} for ${claim.crop} damage. What is the status of my claim ${claim.claimId || claim.internalReportId}?` } })}
+                        className="px-4 py-2 border border-green-200 hover:border-primary-green hover:bg-green-50 text-primary-green font-bold rounded-xl flex items-center justify-center gap-1.5 transition-all text-xs active:scale-95"
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>{t('followUp')}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               );

@@ -101,6 +101,38 @@ export default function ClaimFiling() {
       setActivePolicies([matched, GOVERNMENT_POLICIES[1]]);
       setSelectedPolicyObj(matched);
       setAffectedArea(String(prof.landSize || '2.2'));
+
+      // RESTORE SAVED LOSS REPORT IF AVAILABLE
+      const savedReportStr = localStorage.getItem('kisan_active_loss_report');
+      if (savedReportStr) {
+        try {
+          const saved = JSON.parse(savedReportStr);
+          if (saved && saved.internalReportId) {
+            setInternalReportId(saved.internalReportId);
+            if (saved.officialClaimId) {
+              setOfficialClaimIdInput(saved.officialClaimId);
+              setOfficialReferenceSaved(true);
+            }
+            if (saved.eventType) setSelectedPeril(saved.eventType);
+            if (saved.eventDate) setEventDate(saved.eventDate);
+            if (saved.eventTime) setEventTime(saved.eventTime);
+            if (saved.affectedArea) setAffectedArea(saved.affectedArea.replace(/acres/gi, '').trim());
+            if (saved.gpsCoords) setGpsCoords(saved.gpsCoords);
+            if (saved.aiCrop) {
+              setVisionResult({
+                detected_crop: saved.aiCrop,
+                visible_damage: saved.aiDamage || saved.eventType || 'Flooding',
+                severity: 'Severe',
+                confidence: saved.aiConfidence || 0.91,
+                analysis: 'Saved loss report evidence.'
+              });
+            }
+            setStep(7);
+          }
+        } catch (e) {
+          console.warn("Could not restore saved loss report:", e);
+        }
+      }
     });
   }, [navigate]);
 
@@ -269,30 +301,46 @@ Return ONLY JSON:
     }
 
     setIsPdfGenerating(true);
-    const internalId = 'KS-LOSS-' + Date.now();
+    const internalId = internalReportId || ('KS-LOSS-' + Date.now());
     setInternalReportId(internalId);
 
+    const reportData = {
+      claimId: internalId,
+      internalReportId: internalId,
+      officialClaimId: officialReferenceSaved ? officialClaimIdInput : '',
+      officialChannel: officialChannelSelected,
+      officialDateReported,
+      farmerName: farmerNameInput,
+      aadhaarMasked: 'XXXX XXXX ' + (aadhaarInput.slice(-4) || '6032'),
+      policyScheme: selectedPolicyObj?.scheme || 'PMFBY',
+      policyId: profile?.enrolledPolicy || 'PMF-2026-8912',
+      policyCrop: profile?.primaryCrop || 'Cotton',
+      insurer: selectedPolicyObj?.implementing_insurer || 'AIC / Agriculture Insurance Company of India',
+      khasraNo: selectedParcels.join(', '),
+      insuredArea: `${profile?.landSize || 2.2} Acres`,
+      affectedArea: `${affectedArea} Acres`,
+      acresAffected: affectedArea,
+      eventType: selectedPeril,
+      damageType: selectedPeril,
+      eventDate,
+      eventTime,
+      gpsCoords,
+      aiCrop: visionResult?.detected_crop,
+      aiDamage: visionResult?.visible_damage,
+      aiConfidence: visionResult?.confidence,
+      status: officialReferenceSaved ? 'OFFICIAL REFERENCE RECORDED (USER-PROVIDED)' : 'LOSS REPORT CREATED — OFFICIAL INTIMATION PENDING',
+      dateOfFiling: new Date().toISOString()
+    };
+
+    // Save persistently to localStorage & DB
+    localStorage.setItem('kisan_active_loss_report', JSON.stringify(reportData));
+    const uid = localStorage.getItem('kisan_current_uid');
+    if (uid) {
+      saveClaim(uid, reportData);
+    }
+
     try {
-      generateCropLossIntimationPDF({
-        internalReportId: internalId,
-        officialClaimId: officialReferenceSaved ? officialClaimIdInput : '',
-        farmerName: farmerNameInput,
-        aadhaarMasked: 'XXXX XXXX ' + (aadhaarInput.slice(-4) || '6032'),
-        policyScheme: selectedPolicyObj?.scheme || 'PMFBY',
-        policyId: profile?.enrolledPolicy || 'PMF-2026-8912',
-        policyCrop: profile?.primaryCrop || 'Cotton',
-        insurer: selectedPolicyObj?.implementing_insurer || 'AIC / Agriculture Insurance Company of India',
-        khasraNo: selectedParcels.join(', '),
-        insuredArea: `${profile?.landSize || 2.2} Acres`,
-        affectedArea: `${affectedArea} Acres`,
-        eventType: selectedPeril,
-        eventDate,
-        eventTime,
-        gpsCoords,
-        aiCrop: visionResult?.detected_crop,
-        aiDamage: visionResult?.visible_damage,
-        aiConfidence: visionResult?.confidence
-      });
+      generateCropLossIntimationPDF(reportData);
       setStep(7);
     } catch (err) {
       console.error("Loss Intimation PDF failed:", err);
@@ -308,19 +356,55 @@ Return ONLY JSON:
       return;
     }
     setOfficialReferenceSaved(true);
+
+    const reportData = {
+      claimId: internalReportId || ('KS-LOSS-' + Date.now()),
+      internalReportId: internalReportId || ('KS-LOSS-' + Date.now()),
+      officialClaimId: officialClaimIdInput,
+      officialChannel: officialChannelSelected,
+      officialDateReported,
+      farmerName: farmerNameInput,
+      aadhaarMasked: 'XXXX XXXX ' + (aadhaarInput.slice(-4) || '6032'),
+      policyScheme: selectedPolicyObj?.scheme || 'PMFBY',
+      policyId: profile?.enrolledPolicy || 'PMF-2026-8912',
+      policyCrop: profile?.primaryCrop || 'Cotton',
+      insurer: selectedPolicyObj?.implementing_insurer || 'AIC / Agriculture Insurance Company of India',
+      khasraNo: selectedParcels.join(', '),
+      insuredArea: `${profile?.landSize || 2.2} Acres`,
+      affectedArea: `${affectedArea} Acres`,
+      acresAffected: affectedArea,
+      eventType: selectedPeril,
+      damageType: selectedPeril,
+      eventDate,
+      eventTime,
+      gpsCoords,
+      aiCrop: visionResult?.detected_crop,
+      aiDamage: visionResult?.visible_damage,
+      aiConfidence: visionResult?.confidence,
+      status: 'OFFICIAL REFERENCE RECORDED (USER-PROVIDED)',
+      dateOfFiling: new Date().toISOString()
+    };
+
+    localStorage.setItem('kisan_active_loss_report', JSON.stringify(reportData));
     const uid = localStorage.getItem('kisan_current_uid');
     if (uid) {
-      await saveClaim(uid, {
-        internalReportId,
-        officialClaimId: officialClaimIdInput,
-        officialChannel: officialChannelSelected,
-        officialDateReported,
-        crop: profile?.primaryCrop || 'Cotton',
-        damageType: selectedPeril,
-        eventDate,
-        affectedArea,
-        status: 'OFFICIAL REFERENCE RECORDED (USER-PROVIDED)'
-      });
+      await saveClaim(uid, reportData);
+    }
+  };
+
+  const handleStartNewClaim = () => {
+    if (window.confirm("Do you want to report another crop loss? Your previous loss report will remain saved in your records.")) {
+      localStorage.removeItem('kisan_active_loss_report');
+      setInternalReportId('');
+      setOfficialClaimIdInput('');
+      setOfficialReferenceSaved(false);
+      setPhotoPreview(null);
+      setPhotoBase64(null);
+      setGpsCoords(null);
+      setVisionResult(null);
+      setCropConflict(false);
+      setCropConflictResolved(false);
+      setStep(1);
     }
   };
 
@@ -871,6 +955,20 @@ Return ONLY JSON:
       {/* ============================================================ */}
       {step === 7 && (
         <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm space-y-6">
+          {/* Header Action Bar */}
+          <div className="flex items-center justify-between bg-green-50/60 border border-green-200 rounded-2xl px-4 py-2.5">
+            <span className="text-xs font-bold text-green-900 flex items-center gap-1.5">
+              <CheckCircle2 className="w-4 h-4 text-green-600" /> Saved Loss Intimation Dossier Loaded (ID: {internalReportId || 'KS-LOSS'})
+            </span>
+            <button
+              type="button"
+              onClick={handleStartNewClaim}
+              className="px-3 py-1.5 bg-white border border-green-300 hover:border-green-500 text-green-900 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-2xs cursor-pointer"
+            >
+              <span>+ Report Another Crop Loss</span>
+            </button>
+          </div>
+
           {/* Header Banner */}
           <div className="border border-amber-200 rounded-2xl p-5 bg-amber-50/40 space-y-3">
             <div className="flex items-center justify-between">
