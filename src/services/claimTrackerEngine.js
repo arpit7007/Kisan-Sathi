@@ -4,6 +4,27 @@
  * dynamic status guidance, status history model, and validation rules.
  */
 
+export const CLAIM_TYPE_CONFIG = {
+  localized_calamity: {
+    reportingWindowHours: 72,
+    showTimer: true,
+    title: 'Localized Calamity / Individual Farm Loss',
+    warningText: 'PMFBY Operational Guidelines mandate that localized losses (inundation, hailstorm, landslide) must be reported within 72 hours of occurrence.'
+  },
+  post_harvest: {
+    reportingWindowHours: 72,
+    showTimer: true,
+    title: 'Post-Harvest Loss (Drying Window)',
+    warningText: 'Post-harvest crop damage must be intimated within 72 hours of damage event.'
+  },
+  widespread_yield: {
+    reportingWindowHours: null,
+    showTimer: false,
+    title: 'Widespread Yield Loss (CCE Based)',
+    warningText: 'Widespread yield loss is assessed via end-of-season Crop Cutting Experiments (CCE).'
+  }
+};
+
 export const CLAIM_STATUS_ENUM = {
   LOSS_REPORT_CREATED: {
     id: 'LOSS_REPORT_CREATED',
