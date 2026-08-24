@@ -1061,6 +1061,160 @@ export default function Enroll() {
                     </button>
                   ))}
                 </div>
+
+                {/* --- DYNAMIC ROUTE INSTRUCTIONS PANEL --- */}
+                <div className="bg-green-50/40 border border-green-200 rounded-2xl p-4 space-y-3 transition-all text-xs">
+                  {activeMethodTab === 'csc' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h5 className="font-extrabold text-green-900 text-sm flex items-center gap-1.5">
+                          <Users className="w-4 h-4 text-primary-green" /> Route 1 — Assisted Submission via Common Service Centre (CSC / VLE)
+                        </h5>
+                        <span className="text-[10px] font-extrabold bg-green-200 text-green-900 px-2 py-0.5 rounded-full">Recommended Route</span>
+                      </div>
+                      <p className="text-textSecondary leading-normal text-[11px]">
+                        Visit your nearest CSC Center VLE operator with this printed Proposal Dossier and original documents.
+                      </p>
+                      <div className="bg-white p-3 rounded-xl border border-green-100 space-y-1 text-[11px]">
+                        <div><strong className="text-green-900">Who Enters Data:</strong> CSC VLE Operator logs into NCIP / Insurer Portal using VLE credentials.</div>
+                        <div><strong className="text-green-900">Document Handover:</strong> Hand over physical copies of Aadhaar, Jamabandi Fard, and Passbook.</div>
+                        <div><strong className="text-green-900">Premium Collection:</strong> Pay subsidized farmer share premium to VLE (Cash / Wallet receipt issued).</div>
+                      </div>
+                      <ol className="list-decimal pl-4 space-y-1 text-textSecondary text-[11px]">
+                        <li>Take printed Dossier PDF + physical document copies to nearest CSC VLE Operator.</li>
+                        <li>VLE verifies Land Fard, Bank Account Details, and Sown Crop Acreage.</li>
+                        <li>VLE submits application on NCIP portal and provides official Application ID receipt.</li>
+                      </ol>
+                    </div>
+                  )}
+
+                  {activeMethodTab === 'bank' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h5 className="font-extrabold text-blue-900 text-sm flex items-center gap-1.5">
+                          <Landmark className="w-4 h-4 text-blue-700" /> Route 2 — Direct Submission at Bank Branch
+                        </h5>
+                        <span className="text-[10px] font-extrabold bg-blue-200 text-blue-900 px-2 py-0.5 rounded-full">Direct Bank Branch</span>
+                      </div>
+                      <p className="text-textSecondary leading-normal text-[11px]">
+                        Submit at the bank branch where your savings or KCC account is maintained.
+                      </p>
+                      <div className="bg-white p-3 rounded-xl border border-blue-100 space-y-1 text-[11px]">
+                        <div><strong className="text-blue-900">Who Enters Data:</strong> Bank Agriculture Officer / Branch Manager via CBS-NCIP integration.</div>
+                        <div><strong className="text-blue-900">Document Handover:</strong> Submit signed proposal dossier to bank loan/agri counter.</div>
+                        <div><strong className="text-blue-900">Premium Collection:</strong> Debited directly from your linked bank account.</div>
+                      </div>
+                      <ol className="list-decimal pl-4 space-y-1 text-textSecondary text-[11px]">
+                        <li>Visit your home bank branch with signed proposal dossier.</li>
+                        <li>Branch officer verifies account details and uploads proposal to CBS/NCIP.</li>
+                        <li>Collect stamped acknowledgment receipt with official Application Reference Number.</li>
+                      </ol>
+                    </div>
+                  )}
+
+                  {activeMethodTab === 'pacs' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h5 className="font-extrabold text-amber-900 text-sm flex items-center gap-1.5">
+                          <Building2 className="w-4 h-4 text-amber-700" /> Route 3 — Cooperative PACS Society Enrollment
+                        </h5>
+                        <span className="text-[10px] font-extrabold bg-amber-200 text-amber-900 px-2 py-0.5 rounded-full">Cooperative Society</span>
+                      </div>
+                      <p className="text-textSecondary leading-normal text-[11px]">
+                        Submit through your Primary Agricultural Credit Society (PACS) secretary at village level.
+                      </p>
+                      <div className="bg-white p-3 rounded-xl border border-amber-100 space-y-1 text-[11px]">
+                        <div><strong className="text-amber-900">Who Enters Data:</strong> PACS Secretary / Cooperative Manager.</div>
+                        <div><strong className="text-amber-900">Document Handover:</strong> Hand over dossier to village PACS office.</div>
+                        <div><strong className="text-amber-900">Premium Collection:</strong> Adjusted against PACS crop credit or collected in cash.</div>
+                      </div>
+                      <ol className="list-decimal pl-4 space-y-1 text-textSecondary text-[11px]">
+                        <li>Submit proposal dossier to PACS Secretary at village cooperative society.</li>
+                        <li>PACS verifies land holding against society land register.</li>
+                        <li>Collect PACS official receipt & transaction reference number.</li>
+                      </ol>
+                    </div>
+                  )}
+
+                  {activeMethodTab === 'agent' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h5 className="font-extrabold text-purple-900 text-sm flex items-center gap-1.5">
+                          <HelpCircle className="w-4 h-4 text-purple-700" /> Route 4 — Doorstep Assisted Enrollment via Authorized Intermediary
+                        </h5>
+                        <span className="text-[10px] font-extrabold bg-purple-200 text-purple-900 px-2 py-0.5 rounded-full">Doorstep Agent</span>
+                      </div>
+                      <p className="text-textSecondary leading-normal text-[11px]">
+                        Enroll through an official authorized insurance agent or district insurance representative.
+                      </p>
+                      <div className="bg-white p-3 rounded-xl border border-purple-100 space-y-1 text-[11px]">
+                        <div><strong className="text-purple-900">Who Enters Data:</strong> Authorized Insurance Agent via PosP / Agent POS App.</div>
+                        <div><strong className="text-purple-900">Document Handover:</strong> Show physical documents for agent verification.</div>
+                        <div><strong className="text-purple-900">Premium Collection:</strong> Digital payment or authorized agency receipt.</div>
+                      </div>
+                      <ol className="list-decimal pl-4 space-y-1 text-textSecondary text-[11px]">
+                        <li>Authorized insurance representative checks original documents against proposal dossier.</li>
+                        <li>Agent uploads application using mobile POS insurance app.</li>
+                        <li>Collect digital policy acknowledgement & agent authorization code.</li>
+                      </ol>
+                    </div>
+                  )}
+
+                  {activeMethodTab === 'online' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h5 className="font-extrabold text-teal-900 text-sm flex items-center gap-1.5">
+                          <Globe className="w-4 h-4 text-teal-700" /> Route 5 — Direct Self Online Enrollment ({selectedPolicyObj?.portal || 'pmfby.gov.in'})
+                        </h5>
+                        <span className="text-[10px] font-extrabold bg-teal-200 text-teal-900 px-2 py-0.5 rounded-full">Self Online</span>
+                      </div>
+                      <p className="text-textSecondary leading-normal text-[11px]">
+                        Self-register directly on the official National Crop Insurance Portal or insurer website.
+                      </p>
+                      <div className="bg-white p-3 rounded-xl border border-teal-100 space-y-1 text-[11px]">
+                        <div><strong className="text-teal-900">Who Enters Data:</strong> Farmer self-enters via Web Browser / Mobile.</div>
+                        <div><strong className="text-teal-900">Autofill Support:</strong> Use KisanSaathi Chrome Extension for 1-click profile autofill!</div>
+                        <div><strong className="text-teal-900">Premium Payment:</strong> Online payment via UPI, Debit Card, or Net Banking.</div>
+                      </div>
+                      <ol className="list-decimal pl-4 space-y-1 text-textSecondary text-[11px]">
+                        <li>Visit official portal (<code className="bg-gray-100 px-1 py-0.5 rounded">{selectedPolicyObj?.portal || 'pmfby.gov.in'}</code>).</li>
+                        <li>Select 'Farmer Corner' -&gt; 'Apply for Crop Insurance'.</li>
+                        <li>Pay premium online and instantly download official NCIP Application Receipt.</li>
+                      </ol>
+                      <button
+                        type="button"
+                        onClick={() => window.open(`https://${selectedPolicyObj?.portal || 'pmfby.gov.in'}`, '_blank')}
+                        className="py-2 px-4 bg-teal-700 hover:bg-teal-800 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all cursor-pointer mt-2"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" /> Open Official Portal ({selectedPolicyObj?.portal || 'pmfby.gov.in'})
+                      </button>
+                    </div>
+                  )}
+
+                  {activeMethodTab === 'kcc' && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h5 className="font-extrabold text-indigo-900 text-sm flex items-center gap-1.5">
+                          <CreditCard className="w-4 h-4 text-indigo-700" /> Route 6 — Automatic Loanee KCC Bank Enrollment
+                        </h5>
+                        <span className="text-[10px] font-extrabold bg-indigo-200 text-indigo-900 px-2 py-0.5 rounded-full">Automatic Loan Channel</span>
+                      </div>
+                      <p className="text-textSecondary leading-normal text-[11px]">
+                        Automatic crop coverage for farmers holding active Kisan Credit Card (KCC) loans.
+                      </p>
+                      <div className="bg-white p-3 rounded-xl border border-indigo-100 space-y-1 text-[11px]">
+                        <div><strong className="text-indigo-900">Who Enters Data:</strong> Lending Bank Branch automatically transmits loan crop data to NCIP.</div>
+                        <div><strong className="text-indigo-900">Opt-out Option:</strong> Submit written declaration 7 days prior to cutoff if opting out.</div>
+                        <div><strong className="text-indigo-900">Premium Deduction:</strong> Subsidized farmer share debited directly from KCC account.</div>
+                      </div>
+                      <ol className="list-decimal pl-4 space-y-1 text-textSecondary text-[11px]">
+                        <li>Lending bank branch automatically enrolls notified crops under KCC loan account.</li>
+                        <li>To change crop or land details, submit this proposal dossier to your loan branch.</li>
+                        <li>Bank sends SMS confirmation with NCIP Policy Reference Number.</li>
+                      </ol>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Official Submission Form Tracker */}
