@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 
 /**
  * Generates a formal, multi-page Crop Insurance Enrollment / Proposal Dossier PDF
- * Fixes text wrapping, character encoding mangling, and empty bottom spacing.
+ * Fixes text overlapping, long address line wrapping, and header border cutting.
  * @param {Object} dossier Normalized KisanSaathi Application Object
  * @param {Object} documentImages Object containing base64 images { aadhaar, jamabandi, bankPassbook }
  * @returns {string} Application Reference ID
@@ -20,13 +20,13 @@ export function generatePolicyApplicationPDF(dossier, documentImages = {}) {
   const borderGray = [226, 232, 240]; // #e2e8f0
 
   const addHeader = (pageNum) => {
-    // Top banner background
+    // Top banner background (Full width bleed)
     doc.setFillColor(...primaryColor);
     doc.rect(0, 0, 210, 26, 'F');
 
-    // Title (Latin characters only to prevent PDF font encoding mangling)
+    // Title (Clean Latin characters only to prevent PDF font encoding mangling)
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(16);
+    doc.setFontSize(15);
     doc.setFont('helvetica', 'bold');
     doc.text('KisanSaathi — Smart Crop Insurance Portal', 15, 13);
     
@@ -40,11 +40,6 @@ export function generatePolicyApplicationPDF(dossier, documentImages = {}) {
     doc.text(`Ref ID: ${refId}`, 195, 12, { align: 'right' });
     doc.setFont('helvetica', 'normal');
     doc.text(`Date: ${currentDate}  |  Page ${pageNum} of 5`, 195, 19, { align: 'right' });
-
-    // Outer Page Frame Border
-    doc.setDrawColor(...borderGray);
-    doc.setLineWidth(0.4);
-    doc.rect(10, 10, 190, 277, 'S');
   };
 
   const addFooter = () => {
@@ -55,7 +50,7 @@ export function generatePolicyApplicationPDF(dossier, documentImages = {}) {
     doc.text(footerMsg, 105, 283, { align: 'center' });
   };
 
-  // Helper to draw clean sections
+  // Helper to draw clean section titles
   const drawSectionHeader = (title, y) => {
     doc.setFontSize(11);
     doc.setTextColor(...textColor);
@@ -73,6 +68,32 @@ export function generatePolicyApplicationPDF(dossier, documentImages = {}) {
     doc.setDrawColor(...borderRGB);
     doc.setLineWidth(0.4);
     doc.rect(x, y, w, h, 'S');
+  };
+
+  /**
+   * Auto-wrapping, non-overlapping field row renderer
+   * @param {string} label 
+   * @param {string} val 
+   * @param {number} y 
+   * @param {number} labelWidth Width reserved for label (default 65mm to handle long labels like "Sum Insured Per Hectare/Unit:")
+   * @returns {number} Height consumed in mm
+   */
+  const drawFieldRow = (label, val, y, labelWidth = 65) => {
+    doc.setFontSize(8.5);
+    doc.setTextColor(0, 0, 0);
+
+    // Label
+    doc.setFont('helvetica', 'bold');
+    doc.text(String(label), 20, y);
+
+    // Value (wrapped cleanly within right margin x=192)
+    doc.setFont('helvetica', 'normal');
+    const valX = 20 + labelWidth; // 20 + 65 = 85mm
+    const maxValWidth = 192 - valX; // 192 - 85 = 107mm width available
+    const lines = doc.splitTextToSize(String(val || 'N/A'), maxValWidth);
+
+    doc.text(lines, valX, y);
+    return Math.max(6, lines.length * 4.5);
   };
 
   const f = dossier.farmer || {};
@@ -95,53 +116,46 @@ export function generatePolicyApplicationPDF(dossier, documentImages = {}) {
 
   // Section 1: Farmer Identity
   drawSectionHeader('1. Farmer Identity & Personal Details', 52);
-  drawInfoBox(15, 57, 180, 58, [255, 255, 255]);
+  drawInfoBox(15, 57, 180, 62, [255, 255, 255]);
 
-  doc.setFontSize(8.5);
-  doc.setTextColor(0, 0, 0);
-
-  const drawFieldRow = (label, val, y) => {
-    doc.setFont('helvetica', 'bold');
-    doc.text(label, 20, y);
-    doc.setFont('helvetica', 'normal');
-    doc.text(String(val || 'N/A'), 75, y);
-  };
-
-  drawFieldRow('Full Name:', f.full_name?.value || 'Bhushan Diwakar', 65);
-  drawFieldRow("Father's / Husband's Name:", f.father_name?.value || 'Ramesh Diwakar', 72);
-  drawFieldRow('Date of Birth & Gender:', `${f.dob?.value || '05/07/1985'} (${f.gender?.value || 'Male'})`, 79);
-  drawFieldRow('Mobile Number:', f.mobile?.value || '9876543210', 86);
-  drawFieldRow('Aadhaar Number (Masked):', f.aadhaar_masked || 'XXXX XXXX 6032', 93);
-  drawFieldRow('Farmer Category / Type:', f.farmer_type?.value || 'Small / Marginal Farmer', 100);
-  drawFieldRow('Residential Address:', f.address?.value || 'Fatehgarh Sahib, Punjab', 107);
+  let fy = 65;
+  fy += drawFieldRow('Full Name:', f.full_name?.value || 'Bhushan Diwakar', fy, 65);
+  fy += drawFieldRow("Father's / Husband's Name:", f.father_name?.value || 'Ramesh Diwakar', fy, 65);
+  fy += drawFieldRow('Date of Birth & Gender:', `${f.dob?.value || '05/07/1985'} (${f.gender?.value || 'Male'})`, fy, 65);
+  fy += drawFieldRow('Mobile Number:', f.mobile?.value || '9876543210', fy, 65);
+  fy += drawFieldRow('Aadhaar Number (Masked):', f.aadhaar_masked || 'XXXX XXXX 6032', fy, 65);
+  fy += drawFieldRow('Farmer Category / Type:', f.farmer_type?.value || 'Small / Marginal Farmer', fy, 65);
+  fy += drawFieldRow('Residential Address:', f.address?.value || 'Fatehgarh Sahib, Punjab', fy, 65);
 
   // Section 2: Farm & Crop Summary
-  drawSectionHeader('2. Farm Land & Crop Summary', 123);
-  drawInfoBox(15, 128, 180, 52, [255, 255, 255]);
+  drawSectionHeader('2. Farm Land & Crop Summary', 128);
+  drawInfoBox(15, 133, 180, 50, [255, 255, 255]);
 
-  drawFieldRow('State & District:', `Punjab / ${l.records?.[0]?.district || 'Fatehgarh Sahib'}`, 136);
-  drawFieldRow('Tehsil & Village:', `${l.records?.[0]?.tehsil || 'Sirhind'} / ${l.records?.[0]?.village || 'Fatehgarh Sahib'}`, 143);
-  drawFieldRow('Total Documented Holding:', l.total_documented_area?.value || '2.2 Acres', 150);
-  drawFieldRow('Area Proposed for Insurance:', l.proposed_insured_area?.value || '2.2 Acres', 157);
-  drawFieldRow('Sown Crop Name:', c.crop_name?.value || 'Cotton', 164);
-  drawFieldRow('Crop Season & Year:', `${c.season?.value || 'Kharif'} ${c.year?.value || '2026'}`, 171);
+  let ly = 141;
+  ly += drawFieldRow('State & District:', `Punjab / ${l.records?.[0]?.district || 'Fatehgarh Sahib'}`, ly, 65);
+  ly += drawFieldRow('Tehsil & Village:', `${l.records?.[0]?.tehsil || 'Sirhind'} / ${l.records?.[0]?.village || 'Fatehgarh Sahib'}`, ly, 65);
+  ly += drawFieldRow('Total Documented Holding:', l.total_documented_area?.value || '2.2 Acres', ly, 65);
+  ly += drawFieldRow('Area Proposed for Insurance:', l.proposed_insured_area?.value || '2.2 Acres', ly, 65);
+  ly += drawFieldRow('Sown Crop Name:', c.crop_name?.value || 'Cotton', ly, 65);
+  ly += drawFieldRow('Crop Season & Year:', `${c.season?.value || 'Kharif'} ${c.year?.value || '2026'}`, ly, 65);
 
   // Section 3: Selected Scheme
-  drawSectionHeader('3. Selected Crop Insurance Scheme', 188);
-  drawInfoBox(15, 193, 180, 26, [255, 255, 255]);
+  drawSectionHeader('3. Selected Crop Insurance Scheme', 192);
+  drawInfoBox(15, 197, 180, 26, [255, 255, 255]);
 
-  drawFieldRow('Scheme Name:', ins.scheme || 'PMFBY (Pradhan Mantri Fasal Bima Yojana)', 201);
-  drawFieldRow('Insurance Unit Name:', ins.insurance_unit || 'Fatehgarh Sahib Panchayat Unit 4', 208);
-  drawFieldRow('Subsidy Category:', 'Government Subsidized Farmer Premium Share', 215);
+  let sy = 205;
+  sy += drawFieldRow('Scheme Name:', ins.scheme || 'PMFBY (Pradhan Mantri Fasal Bima Yojana)', sy, 65);
+  sy += drawFieldRow('Insurance Unit Name:', ins.insurance_unit || 'Fatehgarh Sahib Panchayat Unit 4', sy, 65);
+  sy += drawFieldRow('Subsidy Category:', 'Government Subsidized Farmer Premium Share', sy, 65);
 
   // Section 4: Next Steps Box
-  drawSectionHeader('4. Immediate Next Steps for Enrollment', 227);
-  drawInfoBox(15, 232, 180, 42, [240, 253, 244], primaryColor);
+  drawSectionHeader('4. Immediate Next Steps for Enrollment', 231);
+  drawInfoBox(15, 236, 180, 42, [240, 253, 244], primaryColor);
 
   doc.setFontSize(8);
   doc.setTextColor(...textColor);
   doc.setFont('helvetica', 'bold');
-  doc.text('Instructions for Farmer / CSC Operator:', 20, 239);
+  doc.text('Instructions for Farmer / CSC Operator:', 20, 243);
 
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(0, 0, 0);
@@ -151,7 +165,7 @@ export function generatePolicyApplicationPDF(dossier, documentImages = {}) {
     "3. Attach physical document copies of Aadhaar Card, Land Jamabandi (Fard), and Bank Passbook.",
     "4. Present this dossier at your nearest CSC Center, Bank Branch, or PACS for official NCIP portal submission."
   ];
-  let nY = 246;
+  let nY = 250;
   nextStepsText.forEach(stepText => {
     doc.text(stepText, 20, nY);
     nY += 6;
@@ -201,19 +215,19 @@ export function generatePolicyApplicationPDF(dossier, documentImages = {}) {
 
   // Section 6: Crop Care Profile
   drawSectionHeader('6. Sown Crop & Agronomic Details', yPos + 8);
-  drawInfoBox(15, yPos + 13, 180, 50, [255, 255, 255]);
+  drawInfoBox(15, yPos + 13, 180, 48, [255, 255, 255]);
 
   let cY = yPos + 21;
-  drawFieldRow('Crop Name & Code:', `${c.crop_name?.value || 'Cotton'} (${c.crop_code?.value || 'COT-001'})`, cY);
-  drawFieldRow('Area Sown:', c.area_sown?.value || '2.2 Acres', cY + 7);
-  drawFieldRow('Area Proposed for Insurance:', c.area_proposed?.value || '2.2 Acres', cY + 14);
-  drawFieldRow('Irrigation Status:', c.irrigation?.value || 'Irrigated (Canal/Tubewell)', cY + 21);
-  drawFieldRow('Sowing Date:', c.sowing_date?.value || '15/05/2026', cY + 28);
-  drawFieldRow('Information Source:', c.source?.value || 'Farmer Confirmation', cY + 35);
+  cY += drawFieldRow('Crop Name & Code:', `${c.crop_name?.value || 'Cotton'} (${c.crop_code?.value || 'COT-001'})`, cY, 65);
+  cY += drawFieldRow('Area Sown:', c.area_sown?.value || '2.2 Acres', cY, 65);
+  cY += drawFieldRow('Area Proposed for Insurance:', c.area_proposed?.value || '2.2 Acres', cY, 65);
+  cY += drawFieldRow('Irrigation Status:', c.irrigation?.value || 'Irrigated (Canal/Tubewell)', cY, 65);
+  cY += drawFieldRow('Sowing Date:', c.sowing_date?.value || '15/05/2026', cY, 65);
+  cY += drawFieldRow('Information Source:', c.source?.value || 'Farmer Confirmation', cY, 65);
 
   // Section 7: Land Verification Guidelines Box
-  drawSectionHeader('7. Land Holding & Insurable Interest Guidelines', cY + 48);
-  drawInfoBox(15, cY + 53, 180, 42, [248, 250, 252]);
+  drawSectionHeader('7. Land Holding & Insurable Interest Guidelines', cY + 12);
+  drawInfoBox(15, cY + 17, 180, 42, [248, 250, 252]);
 
   doc.setFontSize(8);
   doc.setTextColor(0, 0, 0);
@@ -223,7 +237,7 @@ export function generatePolicyApplicationPDF(dossier, documentImages = {}) {
     "• Area Proposed for Insurance represents the specific sown crop acreage nominated by the farmer for coverage.",
     "• Land ownership shares, tenant agreements, and Khasra survey numbers must be verified against state land portal records by the CSC/Bank operator before final NCIP submission."
   ];
-  let lgY = cY + 60;
+  let lgY = cY + 24;
   landGuideText.forEach(gText => {
     const wrappedG = doc.splitTextToSize(gText, 170);
     doc.text(wrappedG, 20, lgY);
@@ -239,40 +253,43 @@ export function generatePolicyApplicationPDF(dossier, documentImages = {}) {
   addHeader(3);
 
   drawSectionHeader('8. Bank Account Details (Direct Benefit Transfer - DBT)', 32);
-  drawInfoBox(15, 37, 180, 50, [255, 255, 255]);
+  drawInfoBox(15, 37, 180, 48, [255, 255, 255]);
 
-  drawFieldRow('Account Holder Name:', b.account_holder?.value || 'Bhushan Diwakar', 45);
-  drawFieldRow('Bank Name:', b.bank_name?.value || 'State Bank of India', 52);
-  drawFieldRow('Branch Name:', b.branch?.value || 'Fatehgarh Sahib Main Branch', 59);
-  drawFieldRow('Account Number (Masked):', b.account_number?.value || 'XXXXXX4589', 66);
-  drawFieldRow('IFSC Code:', b.ifsc?.value || 'SBIN0001234', 73);
-  drawFieldRow('Bank Document Status:', b.status || 'Uploaded & Extracted', 80);
+  let by = 45;
+  by += drawFieldRow('Account Holder Name:', b.account_holder?.value || 'Bhushan Diwakar', by, 65);
+  by += drawFieldRow('Bank Name:', b.bank_name?.value || 'State Bank of India', by, 65);
+  by += drawFieldRow('Branch Name:', b.branch?.value || 'Fatehgarh Sahib Main Branch', by, 65);
+  by += drawFieldRow('Account Number (Masked):', b.account_number?.value || 'XXXXXX4589', by, 65);
+  by += drawFieldRow('IFSC Code:', b.ifsc?.value || 'SBIN0001234', by, 65);
+  by += drawFieldRow('Bank Document Status:', b.status || 'Uploaded & Extracted', by, 65);
 
-  // Section 9: Premium Calculation
-  drawSectionHeader('9. Premium Calculation & Sum Insured', 96);
-  drawInfoBox(15, 101, 180, 50, [255, 255, 255]);
+  // Section 9: Premium Calculation (PROPER 65MM LABEL MARGIN PREVENTS OVERLAP)
+  drawSectionHeader('9. Premium Calculation & Sum Insured', 94);
+  drawInfoBox(15, 99, 180, 50, [255, 255, 255]);
 
-  drawFieldRow('Sum Insured Per Hectare/Unit:', ins.sum_insured || 'PENDING OFFICIAL VERIFICATION', 109);
-  drawFieldRow('Total Sum Insured:', ins.sum_insured || 'PENDING OFFICIAL VERIFICATION', 116);
-  drawFieldRow('Subsidized Premium Rate:', ins.premium_rate || '1.5% - 2.0% (Subsidized Farmer Share)', 123);
-  drawFieldRow('Farmer Share Premium Payable:', ins.farmer_premium || 'PENDING OFFICIAL VERIFICATION', 130);
-  drawFieldRow('Government Subsidy Share:', ins.government_subsidy || 'PENDING OFFICIAL VERIFICATION', 137);
-  drawFieldRow('Total Gross Premium:', ins.total_premium || 'PENDING OFFICIAL VERIFICATION', 144);
+  let iy = 107;
+  iy += drawFieldRow('Sum Insured Per Hectare/Unit:', ins.sum_insured || 'PENDING OFFICIAL VERIFICATION', iy, 65);
+  iy += drawFieldRow('Total Sum Insured:', ins.sum_insured || 'PENDING OFFICIAL VERIFICATION', iy, 65);
+  iy += drawFieldRow('Subsidized Premium Rate:', ins.premium_rate || '1.5% - 2.0% (Subsidized Farmer Share)', iy, 65);
+  iy += drawFieldRow('Farmer Share Premium Payable:', ins.farmer_premium || 'PENDING OFFICIAL VERIFICATION', iy, 65);
+  iy += drawFieldRow('Government Subsidy Share:', ins.government_subsidy || 'PENDING OFFICIAL VERIFICATION', iy, 65);
+  iy += drawFieldRow('Total Gross Premium:', ins.total_premium || 'PENDING OFFICIAL VERIFICATION', iy, 65);
 
-  // Financial Notice Box (PROPERLY BOUNDED & WRAPPED)
+  // Financial Notice Box
   const noticeStr = "Important Notice: Exact sum insured, farmer premium payable, and government subsidy amounts are finalized by the Bank / CSC operator on the National Crop Insurance Portal (NCIP) at the time of official submission.";
   const wrappedNotice = doc.splitTextToSize(noticeStr, 170);
   const noticeBoxHeight = wrappedNotice.length * 4.5 + 8;
 
-  drawInfoBox(15, 158, 180, noticeBoxHeight, [254, 243, 199], amberColor);
+  drawInfoBox(15, 157, 180, noticeBoxHeight, [254, 243, 199], amberColor);
   doc.setTextColor(180, 83, 9);
   doc.setFontSize(8);
   doc.setFont('helvetica', 'normal');
-  doc.text(wrappedNotice, 20, 164);
+  doc.text(wrappedNotice, 20, 163);
 
   // Section 10: Verification Checklist Summary Box
-  drawSectionHeader('10. Financial Verification Summary', 158 + noticeBoxHeight + 12);
-  drawInfoBox(15, 158 + noticeBoxHeight + 17, 180, 36, [248, 250, 252]);
+  const sec10Y = 157 + noticeBoxHeight + 10;
+  drawSectionHeader('10. Financial Verification Summary', sec10Y);
+  drawInfoBox(15, sec10Y + 5, 180, 36, [248, 250, 252]);
 
   doc.setFontSize(8);
   doc.setTextColor(0, 0, 0);
@@ -282,7 +299,7 @@ export function generatePolicyApplicationPDF(dossier, documentImages = {}) {
     "• Subsidized farmer premium rates: 1.5% for Rabi food crops, 2.0% for Kharif crops, and 5% for commercial/cotton crops.",
     "• Direct Benefit Transfer (DBT) claim payouts are remitted directly to the verified Aadhaar-seeded bank account above."
   ];
-  let fsY = 158 + noticeBoxHeight + 24;
+  let fsY = sec10Y + 12;
   finSummaryText.forEach(fText => {
     const wrappedF = doc.splitTextToSize(fText, 170);
     doc.text(wrappedF, 20, fsY);
@@ -330,7 +347,7 @@ export function generatePolicyApplicationPDF(dossier, documentImages = {}) {
     dY += 8.5;
   });
 
-  // Section 12: Cross-Document Validation Signals (PROPERLY BOUNDED & WRAPPED)
+  // Section 12: Cross-Document Validation Signals
   drawSectionHeader('12. Cross-Document Automated Validation Signals', dY + 8);
   drawInfoBox(15, dY + 13, 180, 52, [255, 255, 255]);
 
@@ -484,10 +501,6 @@ export function generateSubmissionReceiptPDF(submissionData) {
   const primaryColor = [22, 163, 74];
   const textColor = [20, 83, 45];
   const borderGray = [226, 232, 240];
-
-  // Outer Frame
-  doc.setDrawColor(...borderGray);
-  doc.rect(10, 10, 190, 277, 'S');
 
   // Header
   doc.setFillColor(...primaryColor);
