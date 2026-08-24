@@ -369,6 +369,13 @@ export default function Enroll() {
     });
   };
 
+  const getAppStatusLabel = (st) => {
+    if (!st) return 'READY FOR AUTHORIZED SUBMISSION';
+    if (typeof st === 'object' && st.label) return st.label;
+    if (typeof st === 'string') return st;
+    return 'READY FOR AUTHORIZED SUBMISSION';
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6 pb-24 md:pb-8 mt-2">
       {/* Top Navbar Header */}
@@ -393,7 +400,7 @@ export default function Enroll() {
         {/* Current Application Status Badge */}
         <div className="hidden sm:flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-200">
           <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <span className="text-[10px] font-extrabold text-gray-700 uppercase tracking-wider">{appStatus.label}</span>
+          <span className="text-[10px] font-extrabold text-gray-700 uppercase tracking-wider">{getAppStatusLabel(appStatus)}</span>
         </div>
       </div>
 
@@ -1063,7 +1070,7 @@ export default function Enroll() {
                     <h4 className="text-sm font-extrabold">Official Submission Tracker & Receipt</h4>
                   </div>
                   <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full ${isSubmitted ? 'bg-green-100 text-green-800' : 'bg-amber-100 text-amber-800'}`}>
-                    {appStatus.label}
+                    {getAppStatusLabel(appStatus)}
                   </span>
                 </div>
 
