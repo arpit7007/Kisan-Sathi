@@ -208,6 +208,10 @@ export default function ClaimTracker() {
 
   // SAVE STEP 4: ASSESSMENT UPDATE
   const handleSaveStep4 = async () => {
+    if (!isStep3Completed) {
+      alert("Prerequisite Required: Step 3 (Official Loss Intimation Reference) must be recorded before saving an assessment update.");
+      return;
+    }
     const targetId = selectedClaim.claimId || selectedClaim.internalReportId;
     const uid = localStorage.getItem('kisan_current_uid');
     const sObj = CLAIM_STATUS_ENUM[assessmentStatus] || { label: assessmentStatus };
@@ -229,6 +233,10 @@ export default function ClaimTracker() {
 
   // SAVE STEP 5: CLAIM DECISION UPDATE
   const handleSaveStep5 = async () => {
+    if (!isStep4Completed) {
+      alert("Prerequisite Required: Step 4 (Assessment Update) must be recorded before saving a claim decision.");
+      return;
+    }
     const targetId = selectedClaim.claimId || selectedClaim.internalReportId;
     const uid = localStorage.getItem('kisan_current_uid');
     const sObj = CLAIM_STATUS_ENUM[decisionStatus] || { label: decisionStatus };
@@ -251,6 +259,10 @@ export default function ClaimTracker() {
 
   // SAVE STEP 6: PAYMENT UPDATE
   const handleSaveStep6 = async () => {
+    if (!isStep5Completed) {
+      alert("Prerequisite Required: Step 5 (Official Claim Decision) must be recorded before saving payment details.");
+      return;
+    }
     const targetId = selectedClaim.claimId || selectedClaim.internalReportId;
     const uid = localStorage.getItem('kisan_current_uid');
     const sObj = CLAIM_STATUS_ENUM[paymentStatus] || { label: paymentStatus };
@@ -343,10 +355,10 @@ export default function ClaimTracker() {
   };
 
   // Sequential Prerequisite Calculations for Selected Claim
-  const isStep3Completed = !!selectedClaim?.officialClaimId || selectedClaim?.statusHistory?.some(h => h.step === 3 || h.status === 'OFFICIAL_INTIMATION_RECORDED');
-  const isStep4Completed = !!selectedClaim?.step4Completed || selectedClaim?.statusHistory?.some(h => h.step === 4 || h.status === 'ASSESSMENT_COMPLETED' || h.status === 'ASSESSMENT_IN_PROGRESS' || h.status === 'ASSESSMENT_PENDING');
-  const isStep5Completed = !!selectedClaim?.step5Completed || selectedClaim?.statusHistory?.some(h => h.step === 5 || h.status === 'CLAIM_APPROVED' || h.status === 'CLAIM_REJECTED' || h.status === 'CLAIM_DECISION_PENDING');
-  const isStep6Completed = !!selectedClaim?.step6Completed || selectedClaim?.statusHistory?.some(h => h.step === 6 || h.status === 'PAYMENT_COMPLETED' || h.status === 'PAYMENT_PENDING');
+  const isStep3Completed = !!selectedClaim?.officialClaimId || !!selectedClaim?.step3Completed || selectedClaim?.statusHistory?.some(h => h.step === 3 || h.status === 'OFFICIAL_INTIMATION_RECORDED');
+  const isStep4Completed = !!selectedClaim?.step4Completed || selectedClaim?.statusHistory?.some(h => h.step === 4 || h.status === 'ASSESSMENT_COMPLETED' || h.status === 'ASSESSMENT_IN_PROGRESS');
+  const isStep5Completed = !!selectedClaim?.step5Completed || selectedClaim?.statusHistory?.some(h => h.step === 5 || h.status === 'CLAIM_APPROVED' || h.status === 'CLAIM_REJECTED' || h.status === 'CLAIM_PARTIALLY_APPROVED');
+  const isStep6Completed = !!selectedClaim?.step6Completed || selectedClaim?.statusHistory?.some(h => h.step === 6 || h.status === 'PAYMENT_COMPLETED');
 
   const handleOpenModal = (stepNum) => {
     if (!selectedClaim) return;
