@@ -64,6 +64,22 @@ export const stopListening = () => {
   }
 };
 
+/**
+ * Convert Gurmukhi Unicode script to Devanagari script for seamless audio pronunciation
+ * using Indian TTS engines (hi-IN) when native Punjabi OS voice packs are absent.
+ */
+export const gurmukhiToDevanagari = (str) => {
+  if (!str) return '';
+  return str.split('').map(c => {
+    const code = c.charCodeAt(0);
+    // Gurmukhi Unicode block [0x0A01 - 0x0A75] maps structurally to Devanagari [0x0901 - 0x0975]
+    if (code >= 0x0A01 && code <= 0x0A75) {
+      return String.fromCharCode(code - 0x0100);
+    }
+    return c;
+  }).join('');
+};
+
 export const speak = (text, language) => {
   if (!window.speechSynthesis) {
     console.warn("Speech synthesis is not supported in this browser.");
@@ -81,9 +97,7 @@ export const speak = (text, language) => {
 
   if (!cleanText) return;
 
-  const utterance = new SpeechSynthesisUtterance(cleanText);
-
-  // Set language code
+  // Set default language code
   let langCode = 'en-IN';
   if (language === 'pa') langCode = 'pa-IN';
   else if (language === 'hi') langCode = 'hi-IN';
@@ -92,6 +106,7 @@ export const speak = (text, language) => {
     const voices = window.speechSynthesis.getVoices();
     let matchedVoice = null;
     let selectedLang = langCode;
+    let textToSpeak = cleanText;
 
     if (language === 'pa') {
       // 1. Search for native Punjabi voice pack first
@@ -102,7 +117,8 @@ export const speak = (text, language) => {
         v.name.toLowerCase().includes('pa-in')
       );
 
-      // 2. Fallback to Indian/Hindi TTS voice if OS lacks a native Punjabi voice pack
+      // 2. If OS lacks a native Punjabi voice pack (Windows/Android default),
+      // transliterate Gurmukhi to Devanagari script and use Indian (hi-IN) TTS voice!
       if (!matchedVoice) {
         matchedVoice = voices.find(v => 
           v.lang.toLowerCase().startsWith('hi') || 
@@ -111,7 +127,8 @@ export const speak = (text, language) => {
           v.lang.toLowerCase().includes('en-in') ||
           v.name.toLowerCase().includes('india')
         );
-        selectedLang = matchedVoice ? matchedVoice.lang : 'hi-IN';
+        selectedLang = matchedVoice ? (matchedVoice.lang || 'hi-IN') : 'hi-IN';
+        textToSpeak = gurmukhiToDevanagari(cleanText);
       }
     } else if (language === 'hi') {
       matchedVoice = voices.find(v => v.lang.toLowerCase().startsWith('hi') || v.name.toLowerCase().includes('hindi'));
@@ -125,6 +142,8 @@ export const speak = (text, language) => {
       }
     }
 
+    const utterance = new SpeechSynthesisUtterance(textToSpeak);
+
     if (matchedVoice) {
       utterance.voice = matchedVoice;
       utterance.lang = matchedVoice.lang || selectedLang;
@@ -132,7 +151,7 @@ export const speak = (text, language) => {
       utterance.lang = selectedLang;
     }
 
-    utterance.rate = 0.95;
+    utterance.rate = 0.92;
     utterance.pitch = 1.0;
 
     window.speechSynthesis.speak(utterance);
@@ -147,7 +166,6 @@ export const speak = (text, language) => {
       selectVoiceAndSpeak();
       window.speechSynthesis.onvoiceschanged = null;
     };
-    // Fallback trigger in case onvoiceschanged event is not emitted by browser
     setTimeout(() => {
       selectVoiceAndSpeak();
     }, 150);
