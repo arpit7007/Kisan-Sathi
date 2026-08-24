@@ -923,18 +923,17 @@ export default function Enroll() {
             </div>
           )}
 
-          {isPdfComplete && (
-            <div className="space-y-6">
-              {/* Ready Banner */}
-              <div className="border border-green-100 rounded-2xl p-5 bg-green-50/20 text-center space-y-3">
-                <div className="w-12 h-12 rounded-full bg-primary-green text-white flex items-center justify-center mx-auto shadow-sm">
-                  <Check className="w-6 h-6 stroke-[3]" />
-                </div>
-                <div className="space-y-0.5">
-                  <h3 className="text-base font-bold text-textPrimary">{selectedPolicyObj?.scheme} Proposal Dossier Ready</h3>
-                  <p className="text-xs text-textSecondary">Reference ID: <strong className="text-primary-green">{pdfRefId}</strong></p>
-                </div>
+          <div className="space-y-6">
+            {/* Ready Banner */}
+            <div className="border border-green-100 rounded-2xl p-5 bg-green-50/20 text-center space-y-3">
+              <div className="w-12 h-12 rounded-full bg-primary-green text-white flex items-center justify-center mx-auto shadow-sm">
+                <Check className="w-6 h-6 stroke-[3]" />
               </div>
+              <div className="space-y-0.5">
+                <h3 className="text-base font-bold text-textPrimary">{selectedPolicyObj?.scheme} Proposal Dossier Ready</h3>
+                <p className="text-xs text-textSecondary">Reference ID: <strong className="text-primary-green">{pdfRefId || ('KISAN-' + Date.now())}</strong></p>
+              </div>
+            </div>
 
               {/* Action Buttons */}
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -1092,7 +1091,6 @@ export default function Enroll() {
                 </button>
               </div>
             </div>
-          )}
 
           <div className="flex justify-between pt-2 border-t border-gray-100">
             <button onClick={() => setStep(5)} className="px-5 py-2.5 rounded-full font-bold text-sm text-textSecondary bg-gray-50 hover:bg-gray-100 border border-gray-100 flex items-center gap-1.5">
