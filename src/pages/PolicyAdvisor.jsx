@@ -11,8 +11,8 @@ import {
   evaluatePolicyEligibility 
 } from '../services/policyEngine';
 import { 
-  Shield, Sparkles, AlertCircle, HelpCircle, Check, DollarSign, Clock, X, 
-  Building2, Landmark, ChevronDown, ChevronUp, AlertTriangle, FileText, ExternalLink, Info, CheckCircle2
+  Shield, Sparkles, AlertCircle, HelpCircle, Check, Clock, X, 
+  Building2, Landmark, ChevronDown, ChevronUp, FileText, ExternalLink, CheckCircle2, ArrowRight, FileCheck
 } from 'lucide-react';
 
 export default function PolicyAdvisor() {
@@ -24,20 +24,9 @@ export default function PolicyAdvisor() {
   const [loading, setLoading] = useState(true);
   const [enrollingPolicy, setEnrollingPolicy] = useState(null);
   const [showApplyModal, setShowApplyModal] = useState(null); // stores policy object
+  const [showEnrollModal, setShowEnrollModal] = useState(null); // stores policy object for assisted enrollment
   const [showHistorySection, setShowHistorySection] = useState(false);
   const [enrollSuccess, setEnrollSuccess] = useState(false);
-
-  // Payment gateway states
-  const [showPaymentModal, setShowPaymentModal] = useState(null); // stores policy object
-  const [paymentMethod, setPaymentMethod] = useState('upi');
-  const [upiId, setUpiId] = useState('');
-  const [cardNumber, setCardNumber] = useState('4321 8765 2345 9876');
-  const [cardExpiry, setCardExpiry] = useState('12/29');
-  const [cardCvv, setCardCvv] = useState('321');
-  const [cscWalletId, setCscWalletId] = useState('CSC-IND-98745');
-  const [paymentLoading, setPaymentLoading] = useState(false);
-  const [paymentStep, setPaymentStep] = useState(1);
-  const [paymentStatusText, setPaymentStatusText] = useState('');
 
   useEffect(() => {
     const uid = localStorage.getItem('kisan_current_uid');
@@ -52,7 +41,6 @@ export default function PolicyAdvisor() {
         return;
       }
       setProfile(prof);
-      setUpiId(`${prof.name?.toLowerCase().replace(/\s+/g, '') || 'farmer'}@okaxis`);
       fetchRecommendation(prof);
     });
   }, [navigate]);
@@ -94,14 +82,14 @@ Respond in JSON:
     }
   };
 
-  const handleEnroll = async (policyId) => {
+  const handleEnrollDirect = async (policy) => {
     if (!profile) return;
-    setEnrollingPolicy(policyId);
+    setEnrollingPolicy(policy.id);
     
     const updatedProfile = {
       ...profile,
       hasInsurance: 'Yes',
-      enrolledPolicy: policyId
+      enrolledPolicy: policy.id
     };
 
     const success = await saveFarmerProfile(profile.uid, updatedProfile);
@@ -110,51 +98,9 @@ Respond in JSON:
       setTimeout(() => {
         setEnrollSuccess(false);
         setEnrollingPolicy(null);
-        navigate('/dashboard');
-      }, 2000);
+        navigate('/enroll');
+      }, 800);
     }
-  };
-
-  const handlePaymentSubmit = async (e) => {
-    e.preventDefault();
-    setPaymentLoading(true);
-    setPaymentStep(2);
-    
-    const steps = [
-      "Initiating secure transaction...",
-      "Connecting to payment gateway...",
-      "Verifying credentials and available funds...",
-      "Authorizing with bank partner...",
-      "Payment Confirmed! Activating policy..."
-    ];
-    
-    for (let i = 0; i < steps.length; i++) {
-      setPaymentStatusText(steps[i]);
-      await new Promise(resolve => setTimeout(resolve, 600));
-    }
-    
-    setPaymentStep(3);
-    await new Promise(resolve => setTimeout(resolve, 800));
-    
-    const policyId = showPaymentModal?.id;
-    if (policyId) handleEnroll(policyId);
-
-    setPaymentStep(1);
-    setPaymentLoading(false);
-    setShowPaymentModal(null);
-  };
-
-  const handleAutofillPortal = (policy) => {
-    window.postMessage({
-      type: "KISAN_SATHI_SYNC_PROFILE",
-      profile: profile,
-      policy: policy.id
-    }, "*");
-    
-    setTimeout(() => {
-      const url = `https://${policy.portal}`;
-      window.open(url, '_blank');
-    }, 200);
   };
 
   // Helper to render policy card component cleanly
@@ -285,7 +231,7 @@ Respond in JSON:
           <button
             onClick={() => {
               if (eligibility.applicable) {
-                setShowPaymentModal(policy);
+                setShowEnrollModal(policy);
               } else {
                 alert(`Policy eligibility for ${policy.scheme} in ${profile?.district || 'your district'} requires verification with local agriculture office.`);
               }
@@ -530,153 +476,105 @@ Respond in JSON:
         </div>
       )}
 
-      {/* Premium Payment Modal */}
-      {showPaymentModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => { if (!paymentLoading) setShowPaymentModal(null); }}>
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 relative" onClick={e => e.stopPropagation()}>
-            {!paymentLoading && (
-              <button className="absolute right-4 top-4 p-1 hover:bg-gray-100 rounded-full" onClick={() => setShowPaymentModal(null)}>
-                <X className="w-5 h-5 text-gray-500" />
-              </button>
-            )}
+      {/* --- ASSISTED ENROLLMENT MODAL (REPLACES DIRECT PAYMENT MODAL) --- */}
+      {showEnrollModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowEnrollModal(null)}>
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-5 relative animate-fadeIn" onClick={e => e.stopPropagation()}>
+            <button className="absolute right-4 top-4 p-1 hover:bg-gray-100 rounded-full" onClick={() => setShowEnrollModal(null)}>
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
             
-            {paymentStep === 1 ? (
-              <form onSubmit={handlePaymentSubmit} className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="p-2.5 bg-amber-50 rounded-2xl text-amber-600">
-                    <DollarSign className="w-6 h-6" />
-                  </div>
-                  <div>
-                    <h3 className="font-extrabold text-textPrimary">Enrollment & Subsidized Premium Payment</h3>
-                    <span className="text-[10px] text-textSecondary font-bold block uppercase tracking-wider">{showPaymentModal.scheme}</span>
-                  </div>
-                </div>
-
-                <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100 text-xs space-y-2">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400 font-semibold">Scheme Name:</span>
-                    <strong className="text-textPrimary font-bold">{showPaymentModal.scheme_full_name}</strong>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400 font-semibold">Covered Crop:</span>
-                    <strong className="text-textPrimary font-bold">{profile?.primaryCrop || 'Cotton'} ({profile?.landSize || 2.2} Acres)</strong>
-                  </div>
-                  <div className="flex justify-between pt-2 border-t border-gray-200 text-sm">
-                    <span className="text-textPrimary font-bold">Farmer Premium Payable:</span>
-                    <strong className="text-primary-green font-extrabold text-base">
-                      {evaluatePolicyEligibility(showPaymentModal, profile).premium_text}
-                    </strong>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-textSecondary uppercase tracking-wider block">Select Payment Method</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {[
-                      { id: 'upi', label: 'UPI / GPay', icon: Sparkles },
-                      { id: 'card', label: 'Debit/Card', icon: Check },
-                      { id: 'csc', label: 'CSC Wallet', icon: Shield }
-                    ].map(method => {
-                      const Icon = method.icon;
-                      const active = paymentMethod === method.id;
-                      return (
-                        <button
-                          key={method.id}
-                          type="button"
-                          onClick={() => setPaymentMethod(method.id)}
-                          className={`p-3 rounded-xl border text-center flex flex-col items-center gap-1.5 transition-all ${
-                            active 
-                              ? 'border-2 border-primary-green bg-green-50/45 text-primary-green font-bold' 
-                              : 'border-gray-200 hover:bg-gray-50 text-textSecondary text-xs'
-                          }`}
-                        >
-                          <Icon className="w-4 h-4" />
-                          <span className="text-[10px]">{method.label}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="space-y-3 pt-2">
-                  {paymentMethod === 'upi' && (
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-textSecondary block">Enter UPI ID</label>
-                      <input
-                        type="text"
-                        required
-                        value={upiId}
-                        onChange={e => setUpiId(e.target.value)}
-                        placeholder="e.g. farmer@okhdfcbank"
-                        className="w-full p-3 border border-gray-200 rounded-xl text-sm font-semibold text-textPrimary bg-gray-50/50"
-                      />
-                    </div>
-                  )}
-
-                  {paymentMethod === 'card' && (
-                    <div className="space-y-2">
-                      <div className="space-y-1">
-                        <label className="text-xs font-semibold text-textSecondary block">Card Number</label>
-                        <input
-                          type="text"
-                          required
-                          value={cardNumber}
-                          onChange={e => setCardNumber(e.target.value)}
-                          className="w-full p-3 border border-gray-200 rounded-xl text-sm text-textPrimary bg-gray-50/50 text-center tracking-widest font-mono"
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {paymentMethod === 'csc' && (
-                    <div className="space-y-1">
-                      <label className="text-xs font-semibold text-textSecondary block">CSC Operator Wallet ID</label>
-                      <input
-                        type="text"
-                        required
-                        value={cscWalletId}
-                        onChange={e => setCscWalletId(e.target.value)}
-                        className="w-full p-3 border border-gray-200 rounded-xl text-sm text-textPrimary bg-gray-50/50 text-center font-mono"
-                      />
-                    </div>
-                  )}
-                </div>
-
-                <div className="pt-4 border-t border-gray-150 flex gap-3">
-                  <button
-                    type="button"
-                    onClick={() => setShowPaymentModal(null)}
-                    className="flex-1 py-2.5 bg-gray-50 hover:bg-gray-100 text-textSecondary text-xs font-bold rounded-xl text-center"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 py-2.5 bg-primary-green hover:bg-green-700 text-white text-xs font-bold rounded-xl text-center shadow-md shadow-green-200"
-                  >
-                    Confirm & Enroll
-                  </button>
-                </div>
-              </form>
-            ) : paymentStep === 2 ? (
-              <div className="py-8 flex flex-col items-center justify-center space-y-4 text-center">
-                <div className="w-12 h-12 border-4 border-primary-green border-t-transparent rounded-full animate-spin"></div>
-                <div className="space-y-1">
-                  <h4 className="font-bold text-textPrimary text-sm">Processing Enrollment</h4>
-                  <p className="text-xs text-textSecondary animate-pulse font-medium">{paymentStatusText}</p>
-                </div>
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-green-100 text-primary-green rounded-2xl">
+                <FileCheck className="w-6 h-6" />
               </div>
-            ) : (
-              <div className="py-8 flex flex-col items-center justify-center space-y-4 text-center">
-                <div className="w-12 h-12 bg-green-100 text-green-600 rounded-full flex items-center justify-center">
-                  <Check className="w-6 h-6" />
-                </div>
-                <div className="space-y-1">
-                  <h4 className="font-extrabold text-green-700 text-sm">Enrollment Initiated!</h4>
-                  <p className="text-xs text-textSecondary font-semibold">Policy saved to your profile.</p>
-                </div>
+              <div>
+                <h3 className="font-extrabold text-textPrimary text-base">Start Assisted Enrollment</h3>
+                <span className="text-[10px] text-textSecondary font-bold block uppercase tracking-wider">{showEnrollModal.scheme_full_name}</span>
               </div>
-            )}
+            </div>
+
+            {/* Official Compliance Notice Banner */}
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-3.5 text-xs text-amber-900 space-y-1">
+              <span className="font-bold flex items-center gap-1.5 text-amber-950">
+                <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                Official Process & Premium Collection Notice
+              </span>
+              <p className="opacity-90 leading-relaxed text-[11px]">
+                KisanSaathi provides <strong>assisted pre-enrollment & proposal dossier generation</strong>. 
+                KisanSaathi does <em>not</em> collect premium payments directly. Final subsidized premium payments and official policy issuance take place at authorized Bank branches, CSC Centers, or official government portals (<code className="bg-amber-100 px-1 py-0.5 rounded">pmfby.gov.in</code>).
+              </p>
+            </div>
+
+            {/* 2 Assisted Enrollment Pathways */}
+            <div className="space-y-3 pt-1">
+              {/* PATHWAY 1: DOSSIER WIZARD */}
+              <div className="border border-green-200 rounded-2xl p-4 bg-green-50/40 hover:bg-green-50/80 transition-all space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-extrabold text-green-900 uppercase tracking-wider flex items-center gap-1">
+                    <Sparkles className="w-3.5 h-3.5 text-primary-green" /> Pathway 1 (Recommended)
+                  </span>
+                  <span className="text-[9px] font-extrabold bg-green-200 text-green-900 px-2 py-0.5 rounded-full">
+                    Dossier PDF
+                  </span>
+                </div>
+
+                <h4 className="text-sm font-bold text-textPrimary">Generate Proposal Dossier PDF (Wizard)</h4>
+                <p className="text-[11px] text-textSecondary leading-normal">
+                  Scan Aadhaar & Land Jamabandi with AI OCR to build your official 5-Page Enrollment Dossier to hand over at any CSC Center, Bank Branch, or PACS.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleEnrollDirect(showEnrollModal);
+                  }}
+                  className="w-full py-2.5 bg-primary-green hover:bg-green-700 text-white font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-2"
+                >
+                  <span>Launch Dossier Generator Wizard</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* PATHWAY 2: DIRECT ONLINE PORTAL */}
+              <div className="border border-gray-200 rounded-2xl p-4 bg-gray-50/50 hover:bg-gray-100/50 transition-all space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-gray-700 uppercase tracking-wider">
+                    Pathway 2
+                  </span>
+                  <span className="text-[9px] font-extrabold bg-gray-200 text-gray-700 px-2 py-0.5 rounded-full">
+                    {showEnrollModal.portal}
+                  </span>
+                </div>
+
+                <h4 className="text-sm font-bold text-textPrimary">Direct Official Online Enrollment</h4>
+                <p className="text-[11px] text-textSecondary leading-normal">
+                  Open the official government / insurer portal directly with KisanSaathi Extension profile autofill support.
+                </p>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleAutofillPortal(showEnrollModal);
+                    setShowEnrollModal(null);
+                  }}
+                  className="w-full py-2.5 bg-white border border-gray-300 hover:bg-gray-100 text-textPrimary font-bold text-xs rounded-xl shadow-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer mt-2"
+                >
+                  <ExternalLink className="w-3.5 h-3.5 text-gray-600" />
+                  <span>Open Official Portal ({showEnrollModal.portal})</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="pt-2 text-center">
+              <button
+                type="button"
+                onClick={() => setShowEnrollModal(null)}
+                className="text-xs font-bold text-textSecondary hover:underline"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
