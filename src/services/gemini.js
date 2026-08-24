@@ -247,3 +247,141 @@ export async function callGeminiVision(prompt, base64Image, mimeType = 'image/jp
     });
   }
 }
+
+/**
+ * Classifies and extracts structured document details (Aadhaar, Jamabandi, Bank Passbook)
+ * @param {string} base64Image 
+ * @param {string} docTypeHint 'aadhaar' | 'jamabandi' | 'bank_passbook' | 'auto'
+ */
+export async function classifyAndExtractDocument(base64Image, docTypeHint = 'auto') {
+  const prompt = `Analyze this official document image for an Indian agricultural insurance application.
+First, classify document_type as one of: ["aadhaar", "jamabandi", "bank_passbook", "crop_declaration", "other"].
+
+Then extract structured JSON according to document_type:
+
+If Aadhaar Card:
+{
+  "document_type": "aadhaar",
+  "full_name": "extracted name",
+  "date_of_birth": "DD/MM/YYYY",
+  "gender": "Male|Female|Other",
+  "aadhaar_number": "12-digit number",
+  "masked_aadhaar_number": "XXXX XXXX 1234",
+  "address": "full address",
+  "confidence": { "full_name": 0.98, "date_of_birth": 0.95, "aadhaar_number": 0.99 }
+}
+
+If Jamabandi / Land Record:
+{
+  "document_type": "jamabandi",
+  "farmerName": "owner name",
+  "fatherName": "father/husband name",
+  "district": "district name",
+  "tehsil": "tehsil name",
+  "village": "village name",
+  "totalAcres": number,
+  "landType": "Irrigated|Un-irrigated|Mixed",
+  "land_records": [
+    {
+      "village": "string",
+      "khewat_no": "string",
+      "khatauni_no": "string",
+      "khasra_no": "string",
+      "area": "string",
+      "area_unit": "Acres|Bigha|Kanal",
+      "ownership_type": "Self Owned|Tenant|Leased",
+      "owner_name": "string",
+      "confidence": { "khewat_no": 0.96, "khatauni_no": 0.91, "khasra_no": 0.94, "area": 0.88 }
+    }
+  ]
+}
+
+If Bank Passbook:
+{
+  "document_type": "bank_passbook",
+  "account_holder_name": "name",
+  "bank_name": "bank name",
+  "branch_name": "branch name",
+  "account_number": "account number",
+  "ifsc": "IFSC code",
+  "confidence": { "account_number": 0.98, "ifsc": 0.99 }
+}
+
+DO NOT INVENT MISSING VALUES. Return ONLY a valid JSON block matching one of the schemas above.`;
+
+  if (!API_KEY || API_KEY === 'your_free_key_from_aistudio.google.com') {
+    await new Promise(resolve => setTimeout(resolve, 1200));
+
+    if (docTypeHint === 'aadhaar') {
+      return JSON.stringify({
+        document_type: "aadhaar",
+        full_name: "Bhushan Diwakar",
+        date_of_birth: "05/07/1985",
+        gender: "Male",
+        aadhaar_number: "603211223344",
+        masked_aadhaar_number: "XXXX XXXX 3344",
+        address: "VPO Fatehgarh Sahib, District Fatehgarh Sahib, Punjab - 140406",
+        confidence: { full_name: 0.98, date_of_birth: 0.95, aadhaar_number: 0.99 }
+      });
+    }
+
+    if (docTypeHint === 'jamabandi') {
+      return JSON.stringify({
+        document_type: "jamabandi",
+        farmerName: "Bhushan Diwakar",
+        fatherName: "Ramesh Diwakar",
+        district: "Fatehgarh Sahib",
+        tehsil: "Sirhind",
+        village: "Fatehgarh Sahib",
+        totalAcres: 2.2,
+        landType: "Irrigated (Canal/Tubewell)",
+        land_records: [
+          {
+            village: "Fatehgarh Sahib",
+            khewat_no: "45",
+            khatauni_no: "112",
+            khasra_no: "18/2 (2-0)",
+            area: "2.2",
+            area_unit: "Acres",
+            ownership_type: "Self Owned",
+            owner_name: "Bhushan Diwakar",
+            confidence: { khewat_no: 0.96, khatauni_no: 0.91, khasra_no: 0.94, area: 0.88 }
+          }
+        ]
+      });
+    }
+
+    if (docTypeHint === 'bank_passbook') {
+      return JSON.stringify({
+        document_type: "bank_passbook",
+        account_holder_name: "Bhushan Diwakar",
+        bank_name: "State Bank of India",
+        branch_name: "Fatehgarh Sahib Main",
+        account_number: "389201124589",
+        ifsc: "SBIN0001234",
+        confidence: { account_number: 0.98, ifsc: 0.99 }
+      });
+    }
+
+    // Default fallback
+    return JSON.stringify({
+      document_type: "aadhaar",
+      full_name: "Bhushan Diwakar",
+      date_of_birth: "05/07/1985",
+      gender: "Male",
+      aadhaar_number: "603211223344",
+      masked_aadhaar_number: "XXXX XXXX 3344",
+      address: "District Fatehgarh Sahib, Punjab",
+      confidence: { full_name: 0.98, date_of_birth: 0.95, aadhaar_number: 0.99 }
+    });
+  }
+
+  try {
+    const raw = await callGeminiVision(prompt, base64Image);
+    const cleaned = raw.replace(/```json/g, '').replace(/```/g, '').trim();
+    return cleaned;
+  } catch (e) {
+    console.error("Error in classifyAndExtractDocument:", e);
+    throw e;
+  }
+}
