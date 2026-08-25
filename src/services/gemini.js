@@ -127,12 +127,12 @@ const getMockResponse = (prompt, systemContext = '') => {
 
   if (lowercaseUserText.includes("enroll") || lowercaseUserText.includes("apply") || lowercaseUserText.includes("register") || lowercaseUserText.includes("ਲਾਗੂ") || lowercaseUserText.includes("ਪੰਜੀਕਰਨ") || lowercaseUserText.includes("नामांकन") || lowercaseUserText.includes("पंजीकृत")) {
     if (isPunjabi) {
-      return "ਬਹੁਤ ਵਧੀਆ! ਆਓ ਤੁਹਾਡੀ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਕਰੀਏ। ਤੁਰੰਤ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਹੇਠਾਂ ਦਿੱਤੇ ਬਟਨ 'ਤੇ ਟੈਪ ਕਰੋ।";
+      return "ਬਹੁਤ ਵਧੀਆ! ਆਓ ਤੁਹਾਡੀ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਕਰੀਏ। ਮੈਂ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਪ੍ਰਕਿਰਿਆ ਵਿੱਚ ਤੁਹਾਡੀ ਮਦਦ ਕਰਾਂਗਾ।";
     }
     if (isHindi) {
-      return "बहुत बढ़िया! आइए आपका नामांकन करें। त्वरित नामांकन शुरू करने के लिए नीचे दिए गए बटन पर टैप करें।";
+      return "बहुत बढ़िया! आइए आपका नामांकन करें। मैं नामांकन प्रक्रिया में आपकी सहायता करूँगा।";
     }
-    return "Great! Let's get you enrolled. Tap the Start Enrollment button below and I will guide you through the quick enrollment wizard.";
+    return "Great! Let's get you enrolled. I will guide you through the quick enrollment process.";
   }
 
   if (lowercaseUserText.includes("cotton") || lowercaseUserText.includes("spots") || lowercaseUserText.includes("daag") || lowercaseUserText.includes("ਮੇਰੀ ਕਪਾਹ") || lowercaseUserText.includes("ਦਾਗ") || lowercaseUserText.includes("कपास") || lowercaseUserText.includes("धब्बे")) {

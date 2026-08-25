@@ -139,14 +139,44 @@ export default function Chat() {
                                  lowercaseText.includes("ਲਾਗੂ") || 
                                  lowercaseText.includes("ਬੀਮਾ");
 
+    const isFirstMessage = messages.length <= 1;
+
+    const formatAgentResponse = (rawText) => {
+      if (!rawText) return '';
+      let cleaned = rawText;
+
+      // 1. Strip repeated greetings if this is a follow-up response
+      if (!isFirstMessage) {
+        cleaned = cleaned
+          .replace(/^(ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ[!,.]?|Sat Sri Akal[!,.]?|Namaste[!,.]?|नमस्ते[!,.]?|Hello[!,.]?|Hi[!,.]?)\s*/gi, '')
+          .replace(/^[A-Z][a-z]+\s+(Singh|Kaur|Ji|ਜੀ)?[!,.]?\s*/i, '');
+      }
+
+      // 2. Remove references to pressing or tapping buttons
+      cleaned = cleaned
+        .replace(/(ਕਿਰਪਾ ਕਰਕੇ\s*)?ਹੇਠਾਂ ਦਿੱਤੇ ਬਟਨ\s*['’]?ਤੇ\s*ਟੈਪ ਕਰੋ[।.]?/g, '')
+        .replace(/ਨੀਚੇ ਦਿੱਤੇ ਬਟਨ\s*['’]?ਤੇ\s*ਟੈਪ ਕਰੋ[।.]?/g, '')
+        .replace(/नीचे दिए गए बटन पर टैप करें[।.]?/g, '')
+        .replace(/tap the button below( to proceed)?[.]?/gi, '')
+        .replace(/click the button below( to proceed)?[.]?/gi, '')
+        .replace(/press the action button[.]?/gi, '')
+        .replace(/tap the start enrollment button below[.]?/gi, '')
+        .replace(/button below[.]?/gi, '')
+        .trim();
+
+      return cleaned;
+    };
+
     if (isApplyPolicyRequest) {
       await new Promise(resolve => setTimeout(resolve, 600));
-      let responseText = "Great! Click the button below to open the digital insurance enrollment wizard whenever you are ready.";
+      let responseText = "Great! You can complete the digital insurance enrollment wizard whenever you are ready.";
       if (language === 'pa') {
-        responseText = "ਬਹੁਤ ਵਧੀਆ! ਡਿਜੀਟਲ ਬੀਮਾ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਹੇਠਾਂ ਦਿੱਤੇ ਬਟਨ 'ਤੇ ਟੈਪ ਕਰੋ।";
+        responseText = "ਬਹੁਤ ਵਧੀਆ! ਤੁਸੀਂ ਜਦੋਂ ਵੀ ਚਾਹੋ ਡਿਜੀਟਲ ਬੀਮਾ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਸ਼ੁਰੂ ਕਰ ਸਕਦੇ ਹੋ।";
       } else if (language === 'hi') {
-        responseText = "बहुत बढ़िया! डिजिटल बीमा नामांकन शुरू करने के लिए नीचे दिए गए बटन पर टैप करें।";
+        responseText = "बहुत बढ़िया! आप जब चाहें डिजिटल बीमा नामांकन शुरू कर सकते हैं।";
       }
+
+      responseText = formatAgentResponse(responseText);
       
       const agentMsg = {
         sender: 'agent',
@@ -217,7 +247,8 @@ Rules:
 - Be warm, like a helpful neighbor
 - Always use the farmer's EXACT current calculated risk score (${riskScore}/100) when asked about risk!
 - Keep responses under 3 sentences for voice
-- Do NOT say you will automatically redirect. Tell them to tap the action button below to proceed.`;
+- CRITICAL: Do NOT include greetings (like Sat Sri Akal, Namaste, Hello) in your response because this conversation is already in progress. Answer the query directly.
+- CRITICAL: Do NOT instruct the user to press, tap, or click any buttons or action buttons. Give direct, helpful answers.`;
 
     // Intent classifier call
     const intentPrompt = `Classify this message intent as one of: 
@@ -244,18 +275,19 @@ Message: "${userText}"`;
         'OTHER'
       ];
       const cleanedIntent = validIntents.find(intent => rawIntent.includes(intent)) || 'OTHER';
+      const cleanedAgentReply = formatAgentResponse(agentReply);
 
       // Add agent reply
       const agentMsg = {
         sender: 'agent',
-        text: agentReply,
+        text: cleanedAgentReply,
         intent: cleanedIntent,
         timestamp: Date.now()
       };
 
       setMessages(prev => [...prev, agentMsg]);
       setIsProcessing(false);
-      speak(agentReply, language);
+      speak(cleanedAgentReply, language);
     } catch (e) {
       console.error("Gemini call error in chat, using offline conversational agent simulator:", e);
       setIsProcessing(false);
@@ -266,48 +298,50 @@ Message: "${userText}"`;
       if (language === 'en') {
         responseText = "I am KisanSaathi. I can assist you with your crop risk, policy comparisons, and damage claims. Ask me anything!";
         if (lowercaseText.includes("damage") || lowercaseText.includes("claim") || lowercaseText.includes("spots") || lowercaseText === "yes" || lowercaseText.includes("file") || lowercaseText === "ok" || lowercaseText === "okay") {
-          responseText = "I detected crop damage details. Tap the button below whenever you are ready to file your claim.";
+          responseText = "I detected crop damage details. I can assist you with filing your claim whenever you are ready.";
           matchedIntent = 'CLAIM_START';
         } else if (lowercaseText.includes("enroll") || lowercaseText.includes("apply") || lowercaseText.includes("register")) {
-          responseText = "Great! Tap the Start Enrollment button below and I will guide you through the quick enrollment wizard.";
+          responseText = "Great! I can guide you through the quick enrollment wizard.";
           matchedIntent = 'ENROLL_REQUEST';
         } else if (lowercaseText.includes("insurance") || lowercaseText.includes("policy")) {
           responseText = `For ${primaryCrop} in ${district}, I recommend crop insurance to protect against weather anomalies.`;
           matchedIntent = 'POLICY_QUESTION';
         } else if (lowercaseText.includes("weather") || lowercaseText.includes("risk") || lowercaseText.includes("current risk")) {
-          responseText = `Sat Sri Akal, ${farmerName}! Your current crop risk score is ${riskScore}/100 (${overallRiskLevel} Risk), primarily due to: ${topThreats}.`;
+          responseText = `Your current crop risk score is ${riskScore}/100 (${overallRiskLevel} Risk), primarily due to: ${topThreats}.`;
           matchedIntent = 'RISK_QUESTION';
         }
       } else if (language === 'hi') {
         responseText = "मैं किसानसाथी हूँ। मैं आपकी फसल के जोखिम, बीमा और दावे फाइल करने में सहायता कर सकता हूँ।";
         if (lowercaseText.includes("nuksan") || lowercaseText.includes("claim") || lowercaseText.includes("daag") || lowercaseText === "yes" || lowercaseText === "हां" || lowercaseText === "जी" || lowercaseText.includes("फाइल")) {
-          responseText = "मैंने फसल के नुकसान की पहचान की है। अपना बीमा दावा दर्ज करने के लिए नीचे दिए गए बटन पर टैप करें।";
+          responseText = "मैंने फसल के नुकसान की पहचान की है। मैं आपका बीमा दावा दर्ज करने में आपकी सहायता कर सकता हूँ।";
           matchedIntent = 'CLAIM_START';
         } else if (lowercaseText.includes("enroll") || lowercaseText.includes("apply") || lowercaseText.includes("bima") || lowercaseText.includes("insurance") || lowercaseText.includes("पंजीकृत")) {
-          responseText = "बहुत बढ़िया! त्वरित नामांकन शुरू करने के लिए नीचे दिए गए बटन पर टैप करें।";
+          responseText = "बहुत बढ़िया! मैं नामांकन प्रक्रिया में आपकी सहायता करूँगा।";
           matchedIntent = 'ENROLL_REQUEST';
         } else if (lowercaseText.includes("policy")) {
           responseText = "आपके लिए पीएमएफबीवाई (PMFBY) या आरडब्ल्यूबीसीआईएस सबसे अच्छा विकल्प है। क्या मैं योग्यता की जांच करूं?";
           matchedIntent = 'POLICY_QUESTION';
         } else if (lowercaseText.includes("weather") || lowercaseText.includes("risk") || lowercaseText.includes("जोखिम")) {
-          responseText = `नमस्ते, ${farmerName}! आपकी फसल का वर्तमान जोखिम स्कोर ${riskScore}/100 है। मुख्य खतरे: ${topThreats}।`;
+          responseText = `आपकी फसल का वर्तमान जोखिम स्कोर ${riskScore}/100 है। मुख्य खतरे: ${topThreats}।`;
           matchedIntent = 'RISK_QUESTION';
         }
       } else { // pa
         if (lowercaseText.includes("ਨੁਕਸਾਨ") || lowercaseText.includes("ਦਾਅਵਾ") || lowercaseText.includes("ਦਾਗ") || lowercaseText.includes("nuksan") || lowercaseText === "yes" || lowercaseText === "ਹਾਂ" || lowercaseText === "ਜੀ" || lowercaseText.includes("ਫਾਈਲ")) {
-          responseText = "ਮੈਂ ਸਮਝ ਸਕਦਾ ਹਾਂ, ਤੁਹਾਡੀ ਫਸਲ ਦਾ ਨੁਕਸਾਨ ਹੋਇਆ ਹੈ। ਦਾਅਵਾ ਦਰਜ ਕਰਨ ਲਈ ਹੇਠਾਂ ਦਿੱਤੇ ਬਟਨ 'ਤੇ ਟੈਪ ਕਰੋ।";
+          responseText = "ਮੈਂ ਸਮਝ ਸਕਦਾ ਹਾਂ, ਤੁਹਾਡੀ ਫਸਲ ਦਾ ਨੁਕਸਾਨ ਹੋਇਆ ਹੈ। ਮੈਂ ਤੁਹਾਡਾ ਦਾਅਵਾ ਅਤੇ ਨੁਕਸਾਨ ਦੀ ਰਿਪੋਰਟ ਦਰਜ ਕਰਨ ਵਿੱਚ ਮਦਦ ਕਰ ਸਕਦਾ ਹਾਂ।";
           matchedIntent = 'CLAIM_START';
         } else if (lowercaseText.includes("ਰਜਿਸਟ੍ਰੇਸ਼ਨ") || lowercaseText.includes("ਲਾਗੂ") || lowercaseText.includes("ਬੀਮਾ") || lowercaseText.includes("enroll") || lowercaseText.includes("insurance")) {
-          responseText = "ਬਹੁਤ ਵਧੀਆ! ਤੁਰੰਤ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਸ਼ੁਰੂ ਕਰਨ ਲਈ ਹੇਠਾਂ ਦਿੱਤੇ ਬਟਨ 'ਤੇ ਟੈਪ ਕਰੋ।";
+          responseText = "ਬਹੁਤ ਵਧੀਆ! ਮੈਂ ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਪ੍ਰਕਿਰਿਆ ਵਿੱਚ ਤੁਹਾਡੀ ਮਦਦ ਕਰਾਂਗਾ।";
           matchedIntent = 'ENROLL_REQUEST';
         } else if (lowercaseText.includes("policy")) {
           responseText = "ਤੁਹਾਡੇ ਲਈ ਪ੍ਰਧਾਨ ਮੰਤਰੀ ਫਸਲ ਬੀਮਾ ਯੋਜਨਾ (PMFBY) ਅਤੇ RWBCIS ਸਭ ਤੋਂ ਵਧੀਆ ਵਿਕਲਪ ਹਨ। ਕੀ ਤੁਸੀਂ ਚਾਹੁੰਦੇ ਹੋ ਕਿ ਮੈਂ ਤੁਹਾਡੀ ਯੋਗਤਾ ਦੀ ਜਾਂਚ ਕਰਾਂ?";
           matchedIntent = 'POLICY_QUESTION';
         } else if (lowercaseText.includes("weather") || lowercaseText.includes("risk") || lowercaseText.includes("ਜੋਖਮ") || lowercaseText.includes("ਖਤਰਾ")) {
-          responseText = `ਸਤਿ ਸ੍ਰੀ ਅਕਾਲ, ${farmerName}! ਤੁਹਾਡੀ ਫਸਲ ਦਾ ਜੋਖਮ ਸਕੋਰ ${riskScore}/100 ਹੈ। ਮੁੱਖ ਖ਼ਤਰੇ: ${topThreats}।`;
+          responseText = `ਤੁਹਾਡੀ ਫਸਲ ਦਾ ਜੋਖਮ ਸਕੋਰ ${riskScore}/100 ਹੈ। ਮੁੱਖ ਖ਼ਤਰੇ: ${topThreats}।`;
           matchedIntent = 'RISK_QUESTION';
         }
       }
+
+      responseText = formatAgentResponse(responseText);
       
       const staticMsg = {
         sender: 'agent',
